@@ -1,0 +1,9 @@
+servers:
+  - name: pcli2-mcp
+    command:
+      - "/Users/julian/projects/physna/pcli2-mcp/target/release/pcli2-mcp"
+    timeout: 30s
+
+model: "ollama:qwen3:8b"
+ollama:
+  api_base: http://localhost:11434
