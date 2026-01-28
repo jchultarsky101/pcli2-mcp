@@ -173,20 +173,121 @@ impl McpService for Pcli2McpService {
     async fn call_tool(&self, params: CallToolParams) -> Result<CallToolResult, anyhow::Error> {
         info!("Calling tool: {}", params.name);
 
-        // Parse the arguments
-        let args: Pcli2Args = serde_json::from_value(params.arguments)
-            .unwrap_or(Pcli2Args {
-                command: params.name.replace("pcli2_", ""),
-                subcommand: None,
-                args: vec![],
-            });
+        // Parse the arguments based on the tool name
+        let mut cmd_args = Vec::new();
 
-        // Construct the command
-        let mut cmd_args = vec![args.command.clone()];
-        if let Some(subcommand) = args.subcommand {
-            cmd_args.push(subcommand);
+        // Extract command from tool name (e.g., "pcli2_folder" -> "folder")
+        let command = params.name.strip_prefix("pcli2_").unwrap_or(&params.name);
+        cmd_args.push(command.to_string());
+
+        // Process the arguments based on the command type
+        if let Some(obj) = params.arguments.as_object() {
+            // Handle common arguments
+            if let Some(subcommand) = obj.get("subcommand").and_then(|v| v.as_str()) {
+                cmd_args.push(subcommand.to_string());
+            }
+
+            // Handle specific arguments based on the command
+            match command {
+                "folder" => {
+                    // Handle folder-specific arguments
+                    if let Some(folder_path) = obj.get("folder_path").and_then(|v| v.as_str()) {
+                        cmd_args.push("--folder-path".to_string());
+                        cmd_args.push(folder_path.to_string());
+                    } else if let Some(folder_uuid) = obj.get("folder_uuid").and_then(|v| v.as_str()) {
+                        cmd_args.push("--folder-uuid".to_string());
+                        cmd_args.push(folder_uuid.to_string());
+                    }
+
+                    // Add other common folder arguments
+                    if obj.contains_key("tenant") {
+                        if let Some(tenant) = obj.get("tenant").and_then(|v| v.as_str()) {
+                            cmd_args.push("-t".to_string());
+                            cmd_args.push(tenant.to_string());
+                        }
+                    }
+
+                    if obj.contains_key("format") {
+                        if let Some(format_val) = obj.get("format").and_then(|v| v.as_str()) {
+                            cmd_args.push("--format".to_string());
+                            cmd_args.push(format_val.to_string());
+                        }
+                    }
+
+                    // Check if it's a list command and add appropriate flags
+                    if obj.contains_key("list") || command == "folder" && (
+                        obj.contains_key("metadata") ||
+                        obj.contains_key("headers") ||
+                        obj.contains_key("pretty")
+                    ) {
+                        if obj.get("metadata").and_then(|v| v.as_bool()).unwrap_or(false) {
+                            cmd_args.push("--metadata".to_string());
+                        }
+                        if obj.get("headers").and_then(|v| v.as_bool()).unwrap_or(false) {
+                            cmd_args.push("--headers".to_string());
+                        }
+                        if obj.get("pretty").and_then(|v| v.as_bool()).unwrap_or(false) {
+                            cmd_args.push("--pretty".to_string());
+                        }
+                    }
+                },
+                "asset" => {
+                    // Handle asset-specific arguments
+                    if let Some(asset_path) = obj.get("asset_path").and_then(|v| v.as_str()) {
+                        cmd_args.push("--asset-path".to_string());
+                        cmd_args.push(asset_path.to_string());
+                    }
+                },
+                "auth" => {
+                    // Handle auth-specific arguments
+                    if let Some(token) = obj.get("token").and_then(|v| v.as_str()) {
+                        cmd_args.push("--token".to_string());
+                        cmd_args.push(token.to_string());
+                    }
+                },
+                "config" => {
+                    // Handle config-specific arguments
+                    if let Some(key) = obj.get("key").and_then(|v| v.as_str()) {
+                        cmd_args.push(key.to_string());
+                    }
+                },
+                "tenant" => {
+                    // Handle tenant-specific arguments
+                    if let Some(tenant_id) = obj.get("tenant_id").and_then(|v| v.as_str()) {
+                        cmd_args.push(tenant_id.to_string());
+                    }
+                },
+                _ => {
+                    // For other commands, add all arguments as key-value pairs
+                    for (key, value) in obj {
+                        if key != "command" && key != "subcommand" {  // Skip command/subcommand as they're already handled
+                            cmd_args.push(format!("--{}", key));
+                            if let Some(str_val) = value.as_str() {
+                                cmd_args.push(str_val.to_string());
+                            } else if let Some(bool_val) = value.as_bool() {
+                                if bool_val {
+                                    // Boolean flags don't need a value when true
+                                    // We already added the flag above
+                                }
+                            } else if let Some(num_val) = value.as_number() {
+                                cmd_args.push(num_val.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // If arguments is not an object, treat it as a simple array of arguments
+            if let Some(arr) = params.arguments.as_array() {
+                for arg in arr {
+                    if let Some(arg_str) = arg.as_str() {
+                        cmd_args.push(arg_str.to_string());
+                    }
+                }
+            }
         }
-        cmd_args.extend(args.args);
+
+        info!("Executing command: pcli2 {}", cmd_args.join(" "));
 
         // Execute the PCLI2 command
         let output = tokio::process::Command::new("pcli2")

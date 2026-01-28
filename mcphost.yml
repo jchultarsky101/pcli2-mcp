@@ -26,7 +26,8 @@ mcpServers:
     # Note: No --stdio flag needed as mcphost handles stdio transport automatically
 
 # Model configuration
-model: "ollama:qwen3:8b"  # Using your Qwen3 model
+# model: "ollama:qwen3:8b"  # Using your Qwen3 model
+model: "ollama:llama3.2:1b"
 
 # Maximum steps for the model to take
 max-steps: 20
