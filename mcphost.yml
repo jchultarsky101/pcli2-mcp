@@ -1,9 +1,46 @@
-servers:
-  - name: pcli2-mcp
-    command:
-      - "/Users/julian/projects/physna/pcli2-mcp/target/release/pcli2-mcp"
-    timeout: 30s
+# MCPHost Configuration for Local Ollama Connection
 
-model: "ollama:qwen3:8b"
-ollama:
-  api_base: http://localhost:11434
+# MCP Servers - Built-in tools that can be used with your LLM
+mcpServers:
+  # Filesystem server for file operations
+  filesystem:
+    type: "builtin"
+    name: "fs"
+    options:
+      allowed_directories: ["/Users/julian", "/tmp"]
+
+  # Bash server for executing shell commands
+  bash:
+    type: "builtin"
+    name: "bash"
+
+  # HTTP server for making web requests
+  http:
+    type: "builtin"
+    name: "http"
+
+  # PCLI2 MCP server for Physna operations
+  pcli2-mcp:
+    type: "local"
+    name: "pcli2"
+    command: ["/Users/julian/projects/physna/pcli2-mcp/target/release/pcli2-mcp", "--stdio"]
+    options: {}
+
+# Model configuration
+model: "ollama:qwen3:8b"  # Using your Qwen3 model
+
+# Maximum steps for the model to take
+max-steps: 20
+
+# Debug mode (set to true for verbose output)
+debug: false
+
+# Model generation parameters
+max-tokens: 4096
+temperature: 0.7
+top-p: 0.95
+top-k: 40
+stop-sequences: ["Human:", "Assistant:"]
+
+# Provider settings for Ollama
+provider-url: "http://localhost:11434"  # Default Ollama address
