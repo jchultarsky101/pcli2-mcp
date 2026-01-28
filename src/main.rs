@@ -243,6 +243,7 @@ async fn serve_stdio(service: impl McpService + 'static) -> Result<()> {
                 if let Some(method) = value.get("method") {
                     match method.as_str() {
                         Some("initialize") => {
+                            info!("Processing initialize request");
                             // Send initialization response with proper protocol version
                             let response = json!({
                                 "jsonrpc": "2.0",
@@ -260,8 +261,11 @@ async fn serve_stdio(service: impl McpService + 'static) -> Result<()> {
                             });
 
                             let response_str = serde_json::to_string(&response)?;
-                            stdout.write_all(format!("{}\n", response_str).as_bytes()).await?;
+                            info!("Sending initialize response: {}", response_str);
+                            stdout.write_all(response_str.as_bytes()).await?;
+                            stdout.write_all(b"\n").await?;
                             stdout.flush().await?;
+                            info!("Initialize response sent");
                         }
                         Some("initialized") => {
                             // Respond to initialized notification
