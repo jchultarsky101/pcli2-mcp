@@ -27,7 +27,8 @@ mcpServers:
 
 # Model configuration
 # model: "ollama:qwen3:8b"  # Using your Qwen3 model
-model: "ollama:llama3.2:1b"
+# model: "ollama:llama3.2:1b"
+model: "ollama:mistral:7b"
 
 # Maximum steps for the model to take
 max-steps: 20

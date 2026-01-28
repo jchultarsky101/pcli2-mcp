@@ -109,12 +109,12 @@ impl Pcli2McpService {
     fn new() -> Self {
         let mut tools = HashMap::new();
 
-        // Define PCLI2 tools based on available commands
+        // Define PCLI2 tools based on available commands with more explicit descriptions
         tools.insert(
             "pcli2_tenant".to_string(),
             Tool {
                 name: "pcli2_tenant".to_string(),
-                description: Some("Manage tenants in PCLI2".to_string()),
+                description: Some("PCLI2 tool for managing tenants in Physna. Use this for all tenant-related operations.".to_string()),
                 input_schema: None,
             },
         );
@@ -123,7 +123,7 @@ impl Pcli2McpService {
             "pcli2_folder".to_string(),
             Tool {
                 name: "pcli2_folder".to_string(),
-                description: Some("Manage folders in PCLI2".to_string()),
+                description: Some("PCLI2 tool for managing folders in Physna. Use this to list, create, get, delete, or move folders in the Physna system. For listing folders, use the 'list' subcommand with --folder-path parameter.".to_string()),
                 input_schema: None,
             },
         );
@@ -132,7 +132,7 @@ impl Pcli2McpService {
             "pcli2_auth".to_string(),
             Tool {
                 name: "pcli2_auth".to_string(),
-                description: Some("Authentication operations in PCLI2".to_string()),
+                description: Some("PCLI2 tool for authentication operations in Physna. Use this for login, logout, and token management.".to_string()),
                 input_schema: None,
             },
         );
@@ -141,7 +141,7 @@ impl Pcli2McpService {
             "pcli2_asset".to_string(),
             Tool {
                 name: "pcli2_asset".to_string(),
-                description: Some("Manage assets in PCLI2".to_string()),
+                description: Some("PCLI2 tool for managing assets in Physna. Use this for uploading, downloading, and managing assets.".to_string()),
                 input_schema: None,
             },
         );
@@ -150,7 +150,7 @@ impl Pcli2McpService {
             "pcli2_config".to_string(),
             Tool {
                 name: "pcli2_config".to_string(),
-                description: Some("Configuration management in PCLI2".to_string()),
+                description: Some("PCLI2 tool for configuration management in Physna. Use this to get, set, or list configuration settings.".to_string()),
                 input_schema: None,
             },
         );
