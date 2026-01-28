@@ -278,8 +278,28 @@ async fn serve_stdio(service: impl McpService + 'static) -> Result<()> {
                             let tools_json: Vec<Value> = tools_result.tools.into_iter().map(|tool| {
                                 json!({
                                     "name": tool.name,
-                                    "description": tool.description,
-                                    "inputSchema": tool.input_schema
+                                    "description": tool.description.unwrap_or_else(|| format!("PCLI2 tool for {}", tool.name)),
+                                    "inputSchema": tool.input_schema.unwrap_or_else(|| json!({
+                                        "type": "object",
+                                        "properties": {
+                                            "command": {
+                                                "type": "string",
+                                                "description": "The PCLI2 command to execute"
+                                            },
+                                            "subcommand": {
+                                                "type": "string",
+                                                "description": "The subcommand for the PCLI2 command"
+                                            },
+                                            "args": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                },
+                                                "description": "Arguments for the command"
+                                            }
+                                        },
+                                        "required": ["command"]
+                                    }))
                                 })
                             }).collect();
 
@@ -292,7 +312,9 @@ async fn serve_stdio(service: impl McpService + 'static) -> Result<()> {
                             });
 
                             let response_str = serde_json::to_string(&response)?;
-                            stdout.write_all(format!("{}\n", response_str).as_bytes()).await?;
+                            info!("Sending tools list response: {}", response_str);
+                            stdout.write_all(response_str.as_bytes()).await?;
+                            stdout.write_all(b"\n").await?;
                             stdout.flush().await?;
                         }
                         Some(method_str) if method_str.starts_with("tools/") && method_str.contains("/call") => {
