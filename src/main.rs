@@ -243,11 +243,12 @@ async fn serve_stdio(service: impl McpService + 'static) -> Result<()> {
                 if let Some(method) = value.get("method") {
                     match method.as_str() {
                         Some("initialize") => {
-                            // Send initialization response
+                            // Send initialization response with proper protocol version
                             let response = json!({
                                 "jsonrpc": "2.0",
                                 "id": id,
                                 "result": {
+                                    "protocolVersion": "2025-03-26",
                                     "serverInfo": {
                                         "name": "pcli2-mcp",
                                         "version": "0.1.0"
