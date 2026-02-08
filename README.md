@@ -1,5 +1,9 @@
 # pcli2-mcp
 
+[![License](https://img.shields.io/github/license/jchultarsky101/pcli2-mco.svg)](LICENSE)
+[![CI](https://github.com/jchultarsky101/pcli2-mco/actions/workflows/ci.yml/badge.svg)](https://github.com/jchultarsky101/pcli2-mco/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/jchultarsky101/pcli2-mco)](https://github.com/jchultarsky101/pcli2-mco/releases)
+
 A lightweight Model Context Protocol (MCP) server over HTTP that wraps the PCLI2 CLI.
 It exposes PCLI2 capabilities as MCP tools so LLM clients can list assets/folders
 and run geometric match queries through a single JSON-RPC endpoint.
@@ -157,4 +161,4 @@ See `CHANGELOG.md`.
 
 ## License
 
-Apache License 2.0. See `LICENSE`.
+Apache License 2.0. See `LICENSE` and `NOTICE`.
