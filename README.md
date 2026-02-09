@@ -185,6 +185,7 @@ Notes:
 | `pcli2_tenant_list` | `pcli2 tenant list` | none |
 | `pcli2_tenant_get` | `pcli2 tenant get` | none |
 | `pcli2_tenant_state` | `pcli2 tenant state` | none |
+| `pcli2_tenant_use` | `pcli2 tenant use` | `name` |
 | `pcli2_config_get` | `pcli2 config get` | none |
 | `pcli2_config_get_path` | `pcli2 config get path` | none |
 | `pcli2_config_environment_list` | `pcli2 config environment list` | none |
@@ -195,10 +196,8 @@ Notes:
 | `pcli2_folder_geometric_match` | `pcli2 folder geometric-match` | `folder_path` |
 | `pcli2_folder_part_match` | `pcli2 folder part-match` | `folder_path` |
 | `pcli2_folder_visual_match` | `pcli2 folder visual-match` | `folder_path` |
-| `pcli2_folder_thumbnail` | `pcli2 folder thumbnail` | `folder_uuid` or `folder_path` |
 | `pcli2_asset_get` | `pcli2 asset get` | `uuid` or `path` |
 | `pcli2_asset_dependencies` | `pcli2 asset dependencies` | `uuid` or `path` |
-| `pcli2_asset_download` | `pcli2 asset download` | `uuid` or `path` |
 | `pcli2_asset_thumbnail` | `pcli2 asset thumbnail` | `uuid` or `path` |
 | `pcli2_geometric_match` | `pcli2 asset geometric-match` | `uuid` or `path` |
 | `pcli2_asset_part_match` | `pcli2 asset part-match` | `uuid` or `path` |

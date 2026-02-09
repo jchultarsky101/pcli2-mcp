@@ -508,30 +508,6 @@ fn add_concurrent(props: &mut Props) {
     );
 }
 
-fn add_output(props: &mut Props) {
-    add_prop(
-        props,
-        "output",
-        json!({ "type": "string", "description": "Output directory path." }),
-    );
-}
-
-fn add_continue_on_error(props: &mut Props) {
-    add_prop(
-        props,
-        "continue_on_error",
-        json!({ "type": "boolean", "description": "Continue downloading other thumbnails if one fails." }),
-    );
-}
-
-fn add_delay(props: &mut Props) {
-    add_prop(
-        props,
-        "delay",
-        json!({ "type": "integer", "description": "Delay in seconds between downloads (0-180)." }),
-    );
-}
-
 fn add_file(props: &mut Props) {
     add_prop(
         props,
@@ -673,6 +649,28 @@ fn tool_list() -> Vec<Value> {
     push_tool(&mut tools, "pcli2_tenant_state", "Runs `pcli2 tenant state`.", props, &[]);
 
     let mut props = Props::new();
+    add_prop(
+        &mut props,
+        "name",
+        json!({ "type": "string", "description": "Tenant short name (as shown in tenant list)." }),
+    );
+    add_prop(
+        &mut props,
+        "refresh",
+        json!({ "type": "boolean", "description": "Force refresh cache data from API." }),
+    );
+    add_headers(&mut props);
+    add_pretty(&mut props);
+    add_format(&mut props, &["json", "csv"]);
+    push_tool(
+        &mut tools,
+        "pcli2_tenant_use",
+        "Runs `pcli2 tenant use`.",
+        props,
+        &["name"],
+    );
+
+    let mut props = Props::new();
     add_tenant(&mut props);
     add_folder_uuid_path(&mut props);
     add_metadata(&mut props);
@@ -770,22 +768,6 @@ fn tool_list() -> Vec<Value> {
 
     let mut props = Props::new();
     add_tenant(&mut props);
-    add_folder_uuid_path(&mut props);
-    add_output(&mut props);
-    add_progress(&mut props);
-    add_concurrent(&mut props);
-    add_continue_on_error(&mut props);
-    add_delay(&mut props);
-    push_tool(
-        &mut tools,
-        "pcli2_folder_thumbnail",
-        "Runs `pcli2 folder thumbnail`.",
-        props,
-        &[],
-    );
-
-    let mut props = Props::new();
-    add_tenant(&mut props);
     add_uuid_path(&mut props);
     add_headers(&mut props);
     add_metadata(&mut props);
@@ -804,18 +786,6 @@ fn tool_list() -> Vec<Value> {
         &mut tools,
         "pcli2_asset_dependencies",
         "Runs `pcli2 asset dependencies`.",
-        props,
-        &[],
-    );
-
-    let mut props = Props::new();
-    add_tenant(&mut props);
-    add_uuid_path(&mut props);
-    add_file(&mut props);
-    push_tool(
-        &mut tools,
-        "pcli2_asset_download",
-        "Runs `pcli2 asset download`.",
         props,
         &[],
     );
@@ -931,16 +901,15 @@ async fn call_tool(params: Value) -> Result<Value, String> {
         "pcli2_config_environment_get" => run_simple_tool("pcli2 config environment get", run_pcli2_config_environment_get(args).await),
         "pcli2_tenant_get" => run_simple_tool("pcli2 tenant get", run_pcli2_tenant_get(args).await),
         "pcli2_tenant_state" => run_simple_tool("pcli2 tenant state", run_pcli2_tenant_state(args).await),
+        "pcli2_tenant_use" => run_simple_tool("pcli2 tenant use", run_pcli2_tenant_use(args).await),
         "pcli2_folder_get" => run_simple_tool("pcli2 folder get", run_pcli2_folder_get(args).await),
         "pcli2_folder_resolve" => run_simple_tool("pcli2 folder resolve", run_pcli2_folder_resolve(args).await),
         "pcli2_folder_dependencies" => run_simple_tool("pcli2 folder dependencies", run_pcli2_folder_dependencies(args).await),
         "pcli2_folder_geometric_match" => run_simple_tool("pcli2 folder geometric-match", run_pcli2_folder_geometric_match(args).await),
         "pcli2_folder_part_match" => run_simple_tool("pcli2 folder part-match", run_pcli2_folder_part_match(args).await),
         "pcli2_folder_visual_match" => run_simple_tool("pcli2 folder visual-match", run_pcli2_folder_visual_match(args).await),
-        "pcli2_folder_thumbnail" => run_simple_tool("pcli2 folder thumbnail", run_pcli2_folder_thumbnail(args).await),
         "pcli2_asset_get" => run_simple_tool("pcli2 asset get", run_pcli2_asset_get(args).await),
         "pcli2_asset_dependencies" => run_simple_tool("pcli2 asset dependencies", run_pcli2_asset_dependencies(args).await),
-        "pcli2_asset_download" => run_simple_tool("pcli2 asset download", run_pcli2_asset_download(args).await),
         "pcli2_asset_thumbnail" => run_simple_tool("pcli2 asset thumbnail", run_pcli2_asset_thumbnail(args).await),
         "pcli2_geometric_match" => {
             debug!("dispatching pcli2 asset geometric-match");
@@ -1116,6 +1085,22 @@ async fn run_pcli2_tenant_state(args: Value) -> Result<String, String> {
     run_pcli2_command(cmd_args, "pcli2 tenant state").await
 }
 
+async fn run_pcli2_tenant_use(args: Value) -> Result<String, String> {
+    debug!("run_pcli2_tenant_use args={}", args);
+    let mut cmd_args: Vec<String> = vec!["tenant".to_string(), "use".to_string()];
+    let name = args
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "Missing required argument: 'name'".to_string())?;
+    cmd_args.push("--name".to_string());
+    cmd_args.push(name.to_string());
+    push_flag_if(&mut cmd_args, &args, "refresh", "--refresh");
+    push_flag_if(&mut cmd_args, &args, "headers", "--headers");
+    push_flag_if(&mut cmd_args, &args, "pretty", "--pretty");
+    push_opt_string(&mut cmd_args, "-f", args.get("format").and_then(|v| v.as_str()));
+    run_pcli2_command(cmd_args, "pcli2 tenant use").await
+}
+
 async fn run_pcli2_folder_get(args: Value) -> Result<String, String> {
     debug!("run_pcli2_folder_get args={}", args);
     let mut cmd_args: Vec<String> = vec!["folder".to_string(), "get".to_string()];
@@ -1249,24 +1234,6 @@ async fn run_pcli2_folder_visual_match(args: Value) -> Result<String, String> {
     run_pcli2_command(cmd_args, "pcli2 folder visual-match").await
 }
 
-async fn run_pcli2_folder_thumbnail(args: Value) -> Result<String, String> {
-    debug!("run_pcli2_folder_thumbnail args={}", args);
-    let mut cmd_args: Vec<String> = vec!["folder".to_string(), "thumbnail".to_string()];
-    if let Some(tenant) = args.get("tenant").and_then(|v| v.as_str()) {
-        cmd_args.push("-t".to_string());
-        cmd_args.push(tenant.to_string());
-    }
-    let (folder_uuid, folder_path) = require_folder_uuid_or_path(&args)?;
-    push_opt_string(&mut cmd_args, "--folder-uuid", folder_uuid.as_deref());
-    push_opt_string(&mut cmd_args, "--folder-path", folder_path.as_deref());
-    push_opt_string(&mut cmd_args, "--output", args.get("output").and_then(|v| v.as_str()));
-    push_flag_if(&mut cmd_args, &args, "progress", "--progress");
-    push_opt_u64(&mut cmd_args, &args, "concurrent", "--concurrent");
-    push_flag_if(&mut cmd_args, &args, "continue_on_error", "--continue-on-error");
-    push_opt_u64(&mut cmd_args, &args, "delay", "--delay");
-    run_pcli2_command(cmd_args, "pcli2 folder thumbnail").await
-}
-
 async fn run_pcli2_asset_get(args: Value) -> Result<String, String> {
     debug!("run_pcli2_asset_get args={}", args);
     let mut cmd_args: Vec<String> = vec!["asset".to_string(), "get".to_string()];
@@ -1299,22 +1266,6 @@ async fn run_pcli2_asset_dependencies(args: Value) -> Result<String, String> {
     push_flag_if(&mut cmd_args, &args, "pretty", "--pretty");
     push_opt_string(&mut cmd_args, "-f", args.get("format").and_then(|v| v.as_str()));
     run_pcli2_command(cmd_args, "pcli2 asset dependencies").await
-}
-
-async fn run_pcli2_asset_download(args: Value) -> Result<String, String> {
-    debug!("run_pcli2_asset_download args={}", args);
-    let mut cmd_args: Vec<String> = vec!["asset".to_string(), "download".to_string()];
-    if let Some(tenant) = args.get("tenant").and_then(|v| v.as_str()) {
-        cmd_args.push("-t".to_string());
-        cmd_args.push(tenant.to_string());
-    }
-    let (uuid, path) = require_uuid_or_path(&args)?;
-    push_opt_string(&mut cmd_args, "--uuid", uuid.as_deref());
-    push_opt_string(&mut cmd_args, "--path", path.as_deref());
-    if let Some(file) = args.get("file").and_then(|v| v.as_str()) {
-        cmd_args.push(file.to_string());
-    }
-    run_pcli2_command(cmd_args, "pcli2 asset download").await
 }
 
 async fn run_pcli2_asset_thumbnail(args: Value) -> Result<String, String> {
