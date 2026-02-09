@@ -1,8 +1,9 @@
 # pcli2-mcp
 
-[![License](https://img.shields.io/github/license/jchultarsky101/pcli2-mco.svg)](LICENSE)
-[![CI](https://github.com/jchultarsky101/pcli2-mco/actions/workflows/ci.yml/badge.svg)](https://github.com/jchultarsky101/pcli2-mco/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/jchultarsky101/pcli2-mco)](https://github.com/jchultarsky101/pcli2-mco/releases)
+[![Docs](https://img.shields.io/badge/docs-github%20pages-blue)](https://jchultarsky101.github.io/pcli2-mcp/)
+[![License](https://img.shields.io/github/license/jchultarsky101/pcli2-mcp.svg)](LICENSE)
+[![CI](https://github.com/jchultarsky101/pcli2-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/jchultarsky101/pcli2-mcp/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/jchultarsky101/pcli2-mcp)](https://github.com/jchultarsky101/pcli2-mcp/releases)
 
 A lightweight Model Context Protocol (MCP) server over HTTP that wraps the PCLI2 CLI.
 It exposes PCLI2 capabilities as MCP tools so LLM clients can list assets/folders
@@ -10,7 +11,7 @@ and run geometric match queries through a single JSON-RPC endpoint.
 
 Project links:
 
-- `pcli2-mcp`: https://github.com/jchultarsky101/pcli2-mco
+- `pcli2-mcp`: https://github.com/jchultarsky101/pcli2-mcp
 - `pcli2`: https://github.com/jchultarsky101/pcli2
 
 **Status:** early development (v0.1.2).
