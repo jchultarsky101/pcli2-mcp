@@ -643,6 +643,22 @@ fn tool_list() -> Vec<Value> {
 
     let mut props = Props::new();
     add_tenant(&mut props);
+    add_prop(
+        &mut props,
+        "type",
+        json!({
+            "type": "string",
+            "description": "Filter assets by state.",
+            "enum": [
+                "indexing",
+                "finished",
+                "failed",
+                "unsupported",
+                "no-3d-data",
+                "missing-dependencies"
+            ]
+        }),
+    );
     add_headers(&mut props);
     add_pretty(&mut props);
     add_format(&mut props, &["json", "csv"]);
@@ -1084,6 +1100,7 @@ async fn run_pcli2_tenant_state(args: Value) -> Result<String, String> {
         cmd_args.push("-t".to_string());
         cmd_args.push(tenant.to_string());
     }
+    push_opt_string(&mut cmd_args, "--type", args.get("type").and_then(|v| v.as_str()));
     push_flag_if(&mut cmd_args, &args, "headers", "--headers");
     push_flag_if(&mut cmd_args, &args, "pretty", "--pretty");
     push_opt_string(&mut cmd_args, "-f", args.get("format").and_then(|v| v.as_str()));
