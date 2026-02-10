@@ -6,17 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-02-09
+
 ### Added
 
-- Support for additional PCLI2 tools (tenant, config/environment, folder, asset, metadata).
-- CLI improvements: `serve --log-level` and `config --host`.
-- Mock `pcli2` integration test for tool wiring.
-- Expanded README with client setup instructions and tool reference table.
-
-### Changed
-
-- Tool schema construction refactored for reuse and consistency.
-- Removed folder thumbnail tool and asset download support.
+- Added tenant state filtering via the new `--type` option for `pcli2 tenant state`.
 
 ## [0.1.2] - 2026-02-09
 

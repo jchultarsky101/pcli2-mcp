@@ -643,6 +643,22 @@ fn tool_list() -> Vec<Value> {
 
     let mut props = Props::new();
     add_tenant(&mut props);
+    add_prop(
+        &mut props,
+        "type",
+        json!({
+            "type": "string",
+            "description": "Filter assets by state.",
+            "enum": [
+                "indexing",
+                "finished",
+                "failed",
+                "unsupported",
+                "no-3d-data",
+                "missing-dependencies"
+            ]
+        }),
+    );
     add_headers(&mut props);
     add_pretty(&mut props);
     add_format(&mut props, &["json", "csv"]);
@@ -656,6 +672,11 @@ fn tool_list() -> Vec<Value> {
     );
     add_prop(
         &mut props,
+        "tenant_name",
+        json!({ "type": "string", "description": "Tenant short name (alias for name)." }),
+    );
+    add_prop(
+        &mut props,
         "refresh",
         json!({ "type": "boolean", "description": "Force refresh cache data from API." }),
     );
@@ -665,9 +686,9 @@ fn tool_list() -> Vec<Value> {
     push_tool(
         &mut tools,
         "pcli2_tenant_use",
-        "Runs `pcli2 tenant use`.",
+        "Runs `pcli2 tenant use --name <tenantName>`.",
         props,
-        &["name"],
+        &[],
     );
 
     let mut props = Props::new();
@@ -1079,6 +1100,7 @@ async fn run_pcli2_tenant_state(args: Value) -> Result<String, String> {
         cmd_args.push("-t".to_string());
         cmd_args.push(tenant.to_string());
     }
+    push_opt_string(&mut cmd_args, "--type", args.get("type").and_then(|v| v.as_str()));
     push_flag_if(&mut cmd_args, &args, "headers", "--headers");
     push_flag_if(&mut cmd_args, &args, "pretty", "--pretty");
     push_opt_string(&mut cmd_args, "-f", args.get("format").and_then(|v| v.as_str()));
@@ -1089,9 +1111,10 @@ async fn run_pcli2_tenant_use(args: Value) -> Result<String, String> {
     debug!("run_pcli2_tenant_use args={}", args);
     let mut cmd_args: Vec<String> = vec!["tenant".to_string(), "use".to_string()];
     let name = args
-        .get("name")
+        .get("tenant_name")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| "Missing required argument: 'name'".to_string())?;
+        .or_else(|| args.get("name").and_then(|v| v.as_str()))
+        .ok_or_else(|| "Missing required argument: provide 'tenant_name' or 'name'".to_string())?;
     cmd_args.push("--name".to_string());
     cmd_args.push(name.to_string());
     push_flag_if(&mut cmd_args, &args, "refresh", "--refresh");
