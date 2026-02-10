@@ -946,8 +946,7 @@ async fn call_tool(params: Value) -> Result<Value, String> {
             Ok(json!({
                 "content": [{
                     "type": "image",
-                    "media_type": "image/png",
-                    "mime_type": "image/png",
+                    "mimeType": "image/png",
                     "data": encoded
                 }, {
                     "type": "text",
