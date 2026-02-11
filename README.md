@@ -75,6 +75,24 @@ flowchart LR
    ```
 7. Paste the snippet into your client (see the sections below).
 
+## Documentation Site (Oranda)
+
+This repository uses Oranda to render a nicer, hosted version of the README.
+
+Local build:
+
+```bash
+oranda build
+```
+
+Local preview (auto-rebuilds on changes):
+
+```bash
+oranda dev
+```
+
+The GitHub Pages workflow (`.github/workflows/docs.yml`) publishes the site from `public/`.
+
 ## Features
 
 - MCP over HTTP (`/mcp`) with JSON-RPC 2.0
