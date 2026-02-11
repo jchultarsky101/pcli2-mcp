@@ -61,12 +61,24 @@ flowchart LR
    ```bash
    curl -s http://localhost:8080/health
    ```
-5. Generate a client config snippet:
+5. Validate MCP is responding (list tools):
+
+   ```bash
+   curl -s http://localhost:8080/mcp \
+     -H "Content-Type: application/json" \
+     -d '{
+       "jsonrpc": "2.0",
+       "id": 1,
+       "method": "tools/list",
+       "params": {}
+     }'
+   ```
+6. Generate a client config snippet:
 
    ```bash
    pcli2-mcp config --client claude --host localhost --port 8080
    ```
-6. Paste the snippet into your client (see the sections below).
+7. Paste the snippet into your client (see the sections below).
 
 ## Installation
 
