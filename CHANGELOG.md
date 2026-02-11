@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- Added MCP tool for `pcli2 asset metadata delete`.
+
 ## [0.1.6] - 2026-02-11
 
 ### Changed
