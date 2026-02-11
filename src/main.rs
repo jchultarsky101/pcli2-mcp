@@ -550,7 +550,13 @@ fn add_metadata_name(props: &mut Props) {
     add_prop(
         props,
         "name",
-        json!({ "type": "string", "description": "Metadata property name." }),
+        json!({
+            "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+            ],
+            "description": "Metadata property name. Can be a string, comma-separated string, or array."
+        }),
     );
 }
 
@@ -910,6 +916,7 @@ fn tool_list() -> Vec<Value> {
     add_tenant(&mut props);
     add_uuid_path(&mut props);
     add_metadata_name(&mut props);
+    add_format(&mut props, &["json", "csv"]);
     push_tool(
         &mut tools,
         "pcli2_asset_metadata_delete",
@@ -1470,12 +1477,31 @@ async fn run_pcli2_asset_metadata_delete(args: Value) -> Result<String, String> 
     let (uuid, path) = require_uuid_or_path(&args)?;
     push_opt_string(&mut cmd_args, "--uuid", uuid.as_deref());
     push_opt_string(&mut cmd_args, "--path", path.as_deref());
-    let name = args
-        .get("name")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| "Missing required argument: 'name'".to_string())?;
-    cmd_args.push("--name".to_string());
-    cmd_args.push(name.to_string());
+    let names: Vec<String> = match args.get("name") {
+        Some(Value::Array(values)) => values
+            .iter()
+            .filter_map(|value| value.as_str())
+            .flat_map(|value| value.split(','))
+            .map(|value| value.trim())
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+            .collect(),
+        Some(Value::String(value)) => value
+            .split(',')
+            .map(|value| value.trim())
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+            .collect(),
+        _ => Vec::new(),
+    };
+    if names.is_empty() {
+        return Err("Missing required argument: 'name'".to_string());
+    }
+    for name in names {
+        cmd_args.push("--name".to_string());
+        cmd_args.push(name);
+    }
+    push_opt_string(&mut cmd_args, "-f", args.get("format").and_then(|v| v.as_str()));
     run_pcli2_command(cmd_args, "pcli2 asset metadata delete").await
 }
 
