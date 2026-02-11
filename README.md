@@ -237,7 +237,7 @@ MCPHost can use a local Ollama model and connect to this MCP server over HTTP.
 4. Run MCPHost:
 
    ```bash
-   mcphost
+   mcphost -m ollama:qwen3 --config ./mcphost.yml
    ```
 
 ### Other MCP Clients
