@@ -20,6 +20,30 @@ Project links:
 
 PCLI2 (Physna Command Line Interface v2) is the official CLI for the Physna public API, focused on 3D geometry search and asset/folder operations. This project is an MCP wrapper around PCLI2: it runs PCLI2 commands behind an MCP JSON-RPC interface so clients like Claude or Qwen can invoke the same capabilities programmatically. For PCLI2 documentation and usage, see the PCLI2 docs site: https://jchultarsky101.github.io/pcli2/ and the repository: https://github.com/jchultarsky101/pcli2.
 
+In short, the flow looks like this:
+
+1. An LLM client (Claude, Qwen, or another MCP-capable app) sends a tool request.
+2. `pcli2-mcp` translates that request into a PCLI2 CLI call.
+3. PCLI2 talks to the Physna API and returns results.
+4. `pcli2-mcp` returns the structured response back to the LLM client.
+
+This keeps your LLM integration stable (MCP over HTTP) while the underlying CLI (PCLI2) remains the single source of truth for Physna API behavior.
+
+```mermaid
+flowchart LR
+  LLM[LLM Client\n(Claude, Qwen, etc.)]
+  MCP[pcli2-mcp\nMCP Server]
+  CLI[PCLI2 CLI]
+  API[Physna Public API]
+
+  LLM -- MCP tools/list, tools/call --> MCP
+  MCP -- spawn CLI commands --> CLI
+  CLI -- HTTPS requests --> API
+  API -- responses --> CLI
+  CLI -- stdout/stderr --> MCP
+  MCP -- JSON-RPC response --> LLM
+```
+
 ## Features
 
 - MCP over HTTP (`/mcp`) with JSON-RPC 2.0
