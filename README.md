@@ -31,7 +31,7 @@ This keeps your LLM integration stable (MCP over HTTP) while the underlying CLI 
 
 ```mermaid
 flowchart LR
-  LLM[LLM Client (Claude, Qwen, etc.)]
+  LLM["LLM Client (Claude, Qwen, etc.)"]
   MCP[pcli2-mcp MCP Server]
   CLI[PCLI2 CLI]
   API[Physna Public API]
