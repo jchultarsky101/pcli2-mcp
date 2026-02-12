@@ -5,7 +5,7 @@ Oranda docs: https://jchultarsky101.github.io/pcli2-mcp/
 [![Docs](https://img.shields.io/badge/docs-github%20pages-blue)](https://jchultarsky101.github.io/pcli2-mcp/)
 [![License](https://img.shields.io/github/license/jchultarsky101/pcli2-mcp.svg)](LICENSE)
 [![CI](https://github.com/jchultarsky101/pcli2-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/jchultarsky101/pcli2-mcp/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/jchultarsky101/pcli2-mcp)](https://github.com/jchultarsky101/pcli2-mcp/releases)
+[![Release](https://github.com/jchultarsky101/pcli2-mcp/releases)](https://github.com/jchultarsky101/pcli2-mcp/releases)
 
 A lightweight Model Context Protocol (MCP) server over HTTP that wraps the PCLI2 CLI.
 It exposes PCLI2 capabilities as MCP tools so LLM clients can list assets/folders
@@ -16,7 +16,7 @@ Project links:
 - `pcli2-mcp`: https://github.com/jchultarsky101/pcli2-mcp
 - `pcli2`: https://github.com/jchultarsky101/pcli2
 
-**Status:** early development (v0.1.3).
+**Status:** early development (v0.1.8).
 
 ## Main Concepts
 
@@ -123,6 +123,12 @@ The GitHub Pages workflow (`.github/workflows/docs.yml`) publishes the site from
 - Tool wrapper for `pcli2 folder list` and `pcli2 asset list`
 - Tool wrapper for `pcli2 asset geometric-match`
 - Simple, single-binary Rust server
+- Comprehensive unit and integration tests
+- Improved banner formatting with centered version display
+- Clear instructions for stopping the server (Ctrl+C)
+- Optimized default logging (info level instead of debug)
+- Server start time indicator in logs
+- Modular code architecture for better maintainability
 
 ## Client Setup (Using `config`)
 
@@ -341,10 +347,31 @@ Example:
 - `--log-level`: logging level for the server (default: `info`)
 - `RUST_LOG`: log level (e.g. `info`, `debug`)
 
+## Enhanced Features
+
+### Improved Logging
+- Default log level changed from `debug` to `info` for cleaner output
+- Server start time indicator in logs for better operational awareness
+- Clear instruction to press `Ctrl+C` to stop the server
+
+### Better User Experience
+- Enhanced banner with centered version display
+- More informative startup messages
+
+### Comprehensive Testing
+- Extensive unit tests for all modules (45+ unit tests)
+- Integration tests covering various scenarios (10+ integration tests)
+- Robust error handling and validation functions
+
+### Modular Architecture
+- Codebase organized into separate modules (cli, error, mcp, pcli2, server)
+- Better maintainability and separation of concerns
+
 ## Troubleshooting
 
 - Ensure `pcli2` is installed and reachable via `PATH`.
 - If the server returns a non-zero error, check the embedded `pcli2` stdout/stderr in the response.
+- For verbose logging during troubleshooting, set `RUST_LOG=debug`.
 
 ## Contributing
 
