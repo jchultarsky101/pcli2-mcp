@@ -6,6 +6,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-02-12
+
+### Added
+
+- Comprehensive unit and integration tests for all modules (45+ unit tests, 10+ integration tests).
+- Server start time indicator in logs for better operational awareness.
+- Chrono dependency for time formatting capabilities.
+
+### Changed
+
+- Improved banner formatting with centered version display.
+- Changed default log level from debug to info for cleaner output.
+- Added clear instruction to press Ctrl+C to stop the server.
+- Modularized codebase into separate files (cli, error, mcp, pcli2, server) for better maintainability.
+- Fixed tracing initialization to prevent duplicate subscriber errors.
+
 ## [0.1.8] - 2026-02-11
 
 ### Added
