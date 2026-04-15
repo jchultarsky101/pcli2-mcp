@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [0.1.15] - 2026-04-15
+
+### Changed
+
+- Updated README: fix stale version reference (v0.1.11 → v0.1.15), consolidate features section, remove redundant "Enhanced Features" section.
+
 ## [0.1.14] - 2026-04-15
 
 ### Added
