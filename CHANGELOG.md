@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [0.1.14] - 2026-04-15
+
+### Added
+
+- `pcli2_environment_use` tool → `pcli2 env use --name <name>`
+- `pcli2_environment_add` tool → `pcli2 env add --name <name> [--api-url ...] [--ui-url ...] [--auth-url ...]`
+- `pcli2_environment_remove` tool → `pcli2 env remove --name <name>`
+- `pcli2_environment_reset` tool → `pcli2 env reset`
+- `pcli2_user_list` tool → `pcli2 user list`
+- `pcli2_user_get` tool → `pcli2 user get <user_id>`
+
+### Changed
+
+- Environment tools (`pcli2_environment_list` / `_get`) now invoke the canonical `pcli2 env ...` alias instead of `pcli2 environment ...`.
+
 ## [0.1.13] - 2026-04-15
 
 ### Changed
