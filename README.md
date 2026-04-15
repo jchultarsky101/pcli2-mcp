@@ -298,7 +298,7 @@ Notes:
 
 | Tool | PCLI2 Command | Required Arguments |
 | --- | --- | --- |
-| `pcli2` | `pcli2 folder list` / `pcli2 asset list` | none |
+| `pcli2` | `pcli2 folder list` / `pcli2 asset list` | `folder_path` when `resource=asset` |
 | `pcli2_version` | `pcli2 --version` | none |
 | `pcli2_tenant_list` | `pcli2 tenant list` | none |
 | `pcli2_tenant_get` | `pcli2 tenant get` | none |
@@ -306,8 +306,8 @@ Notes:
 | `pcli2_tenant_use` | `pcli2 tenant use --name <tenantName>` | `tenant_name` or `name` |
 | `pcli2_config_get` | `pcli2 config get` | none |
 | `pcli2_config_get_path` | `pcli2 config get path` | none |
-| `pcli2_config_environment_list` | `pcli2 config environment list` | none |
-| `pcli2_config_environment_get` | `pcli2 config environment get` | none |
+| `pcli2_environment_list` | `pcli2 environment list` | none |
+| `pcli2_environment_get` | `pcli2 environment get` | none |
 | `pcli2_folder_get` | `pcli2 folder get` | `folder_uuid` or `folder_path` |
 | `pcli2_folder_resolve` | `pcli2 folder resolve` | `folder_path` |
 | `pcli2_folder_dependencies` | `pcli2 folder dependencies` | `folder_path` |

@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [0.1.13] - 2026-04-15
+
+### Changed
+
+- **Breaking (MCP tool names):** Renamed `pcli2_config_environment_list` → `pcli2_environment_list` and `pcli2_config_environment_get` → `pcli2_environment_get` to match pcli2 v1.1.7, which promoted `environment` from a `config` subcommand to a top-level command.
+- `pcli2` list tool: when `resource=asset`, `folder_path` is now required and `folder_uuid` is no longer accepted (reflects pcli2 v1.1.7 `asset list` signature). A new `recursive` option forwards `--recursive` to `asset list`.
+
 ## [0.1.12] - 2026-02-20
 
 ### Changed
