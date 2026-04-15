@@ -301,7 +301,7 @@ pub fn tool_list() -> Vec<Value> {
     define_tool(
         &mut tools,
         "pcli2_environment_list",
-        "Runs `pcli2 environment list`.",
+        "Runs `pcli2 env list`.",
         &[],
         |props| {
             add_headers(props);
@@ -313,7 +313,7 @@ pub fn tool_list() -> Vec<Value> {
     define_tool(
         &mut tools,
         "pcli2_environment_get",
-        "Runs `pcli2 environment get`.",
+        "Runs `pcli2 env get`.",
         &[],
         |props| {
             add_prop(
@@ -324,6 +324,100 @@ pub fn tool_list() -> Vec<Value> {
             add_headers(props);
             add_pretty(props);
             add_format(props, &["json", "csv"]);
+        },
+    );
+
+    define_tool(
+        &mut tools,
+        "pcli2_environment_use",
+        "Runs `pcli2 env use --name <name>`. Switches the active environment.",
+        &["name"],
+        |props| {
+            add_prop(
+                props,
+                "name",
+                json!({ "type": "string", "description": "Name of the environment to switch to." }),
+            );
+        },
+    );
+
+    define_tool(
+        &mut tools,
+        "pcli2_environment_add",
+        "Runs `pcli2 env add --name <name> [--api-url ...] [--ui-url ...] [--auth-url ...]`. Adds a new environment configuration.",
+        &["name"],
+        |props| {
+            add_prop(
+                props,
+                "name",
+                json!({ "type": "string", "description": "Name of the environment." }),
+            );
+            add_prop(
+                props,
+                "api_url",
+                json!({ "type": "string", "description": "API base URL (e.g., https://app-api.physna.com/v3)." }),
+            );
+            add_prop(
+                props,
+                "ui_url",
+                json!({ "type": "string", "description": "UI base URL (e.g., https://app.physna.com)." }),
+            );
+            add_prop(
+                props,
+                "auth_url",
+                json!({ "type": "string", "description": "Authentication URL (e.g., https://physna-app.auth.us-east-2.amazoncognito.com/oauth2/token)." }),
+            );
+        },
+    );
+
+    define_tool(
+        &mut tools,
+        "pcli2_environment_remove",
+        "Runs `pcli2 env remove --name <name>`. Removes an environment configuration.",
+        &["name"],
+        |props| {
+            add_prop(
+                props,
+                "name",
+                json!({ "type": "string", "description": "Name of the environment to remove." }),
+            );
+        },
+    );
+
+    define_tool(
+        &mut tools,
+        "pcli2_environment_reset",
+        "Runs `pcli2 env reset`. Resets all environment configurations to a blank state.",
+        &[],
+        |_| {},
+    );
+
+    define_tool(
+        &mut tools,
+        "pcli2_user_list",
+        "Runs `pcli2 user list`. Lists users in the current tenant.",
+        &[],
+        |props| {
+            add_headers(props);
+            add_pretty(props);
+            add_format(props, &["json", "csv", "tree"]);
+        },
+    );
+
+    define_tool(
+        &mut tools,
+        "pcli2_user_get",
+        "Runs `pcli2 user get <user_id>`. Gets details for a specific user.",
+        &["user_id"],
+        |props| {
+            add_prop(
+                props,
+                "user_id",
+                json!({ "type": "string", "description": "The ID of the user to retrieve." }),
+            );
+            add_headers(props);
+            add_pretty(props);
+            add_format(props, &["json", "csv", "tree"]);
         },
     );
 
@@ -690,13 +784,33 @@ pub async fn call_tool(
             run_pcli2_config_get_path(args).await,
         ),
         "pcli2_environment_list" => run_simple_tool(
-            "pcli2 environment list",
+            "pcli2 env list",
             run_pcli2_environment_list(args).await,
         ),
         "pcli2_environment_get" => run_simple_tool(
-            "pcli2 environment get",
+            "pcli2 env get",
             run_pcli2_environment_get(args).await,
         ),
+        "pcli2_environment_use" => run_simple_tool(
+            "pcli2 env use",
+            run_pcli2_environment_use(args).await,
+        ),
+        "pcli2_environment_add" => run_simple_tool(
+            "pcli2 env add",
+            run_pcli2_environment_add(args).await,
+        ),
+        "pcli2_environment_remove" => run_simple_tool(
+            "pcli2 env remove",
+            run_pcli2_environment_remove(args).await,
+        ),
+        "pcli2_environment_reset" => run_simple_tool(
+            "pcli2 env reset",
+            run_pcli2_environment_reset(args).await,
+        ),
+        "pcli2_user_list" => {
+            run_simple_tool("pcli2 user list", run_pcli2_user_list(args).await)
+        }
+        "pcli2_user_get" => run_simple_tool("pcli2 user get", run_pcli2_user_get(args).await),
         "pcli2_tenant_get" => run_simple_tool("pcli2 tenant get", run_pcli2_tenant_get(args).await),
         "pcli2_tenant_state" => {
             run_simple_tool("pcli2 tenant state", run_pcli2_tenant_state(args).await)
@@ -961,7 +1075,7 @@ async fn run_pcli2_config_get_path(args: Value) -> Result<String, String> {
 }
 
 async fn run_pcli2_environment_list(args: Value) -> Result<String, String> {
-    let mut cmd_args: Vec<String> = vec!["environment".to_string(), "list".to_string()];
+    let mut cmd_args: Vec<String> = vec!["env".to_string(), "list".to_string()];
     push_flag_if(&mut cmd_args, &args, "headers", "--headers");
     push_flag_if(&mut cmd_args, &args, "pretty", "--pretty");
     push_opt_string(
@@ -969,11 +1083,11 @@ async fn run_pcli2_environment_list(args: Value) -> Result<String, String> {
         "-f",
         args.get("format").and_then(|v| v.as_str()),
     );
-    run_pcli2_command(cmd_args, "pcli2 environment list").await
+    run_pcli2_command(cmd_args, "pcli2 env list").await
 }
 
 async fn run_pcli2_environment_get(args: Value) -> Result<String, String> {
-    let mut cmd_args: Vec<String> = vec!["environment".to_string(), "get".to_string()];
+    let mut cmd_args: Vec<String> = vec!["env".to_string(), "get".to_string()];
     push_opt_string(
         &mut cmd_args,
         "-n",
@@ -986,7 +1100,98 @@ async fn run_pcli2_environment_get(args: Value) -> Result<String, String> {
         "-f",
         args.get("format").and_then(|v| v.as_str()),
     );
-    run_pcli2_command(cmd_args, "pcli2 environment get").await
+    run_pcli2_command(cmd_args, "pcli2 env get").await
+}
+
+async fn run_pcli2_environment_use(args: Value) -> Result<String, String> {
+    let name = args
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "Missing required argument: 'name'".to_string())?;
+    let cmd_args: Vec<String> = vec![
+        "env".to_string(),
+        "use".to_string(),
+        "--name".to_string(),
+        name.to_string(),
+    ];
+    run_pcli2_command(cmd_args, "pcli2 env use").await
+}
+
+async fn run_pcli2_environment_add(args: Value) -> Result<String, String> {
+    let name = args
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "Missing required argument: 'name'".to_string())?;
+    let mut cmd_args: Vec<String> = vec![
+        "env".to_string(),
+        "add".to_string(),
+        "--name".to_string(),
+        name.to_string(),
+    ];
+    push_opt_string(
+        &mut cmd_args,
+        "--api-url",
+        args.get("api_url").and_then(|v| v.as_str()),
+    );
+    push_opt_string(
+        &mut cmd_args,
+        "--ui-url",
+        args.get("ui_url").and_then(|v| v.as_str()),
+    );
+    push_opt_string(
+        &mut cmd_args,
+        "--auth-url",
+        args.get("auth_url").and_then(|v| v.as_str()),
+    );
+    run_pcli2_command(cmd_args, "pcli2 env add").await
+}
+
+async fn run_pcli2_environment_remove(args: Value) -> Result<String, String> {
+    let name = args
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "Missing required argument: 'name'".to_string())?;
+    let cmd_args: Vec<String> = vec![
+        "env".to_string(),
+        "remove".to_string(),
+        "--name".to_string(),
+        name.to_string(),
+    ];
+    run_pcli2_command(cmd_args, "pcli2 env remove").await
+}
+
+async fn run_pcli2_environment_reset(_args: Value) -> Result<String, String> {
+    let cmd_args: Vec<String> = vec!["env".to_string(), "reset".to_string()];
+    run_pcli2_command(cmd_args, "pcli2 env reset").await
+}
+
+async fn run_pcli2_user_list(args: Value) -> Result<String, String> {
+    let mut cmd_args: Vec<String> = vec!["user".to_string(), "list".to_string()];
+    push_flag_if(&mut cmd_args, &args, "headers", "--headers");
+    push_flag_if(&mut cmd_args, &args, "pretty", "--pretty");
+    push_opt_string(
+        &mut cmd_args,
+        "-f",
+        args.get("format").and_then(|v| v.as_str()),
+    );
+    run_pcli2_command(cmd_args, "pcli2 user list").await
+}
+
+async fn run_pcli2_user_get(args: Value) -> Result<String, String> {
+    let user_id = args
+        .get("user_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "Missing required argument: 'user_id'".to_string())?;
+    let mut cmd_args: Vec<String> =
+        vec!["user".to_string(), "get".to_string(), user_id.to_string()];
+    push_flag_if(&mut cmd_args, &args, "headers", "--headers");
+    push_flag_if(&mut cmd_args, &args, "pretty", "--pretty");
+    push_opt_string(
+        &mut cmd_args,
+        "-f",
+        args.get("format").and_then(|v| v.as_str()),
+    );
+    run_pcli2_command(cmd_args, "pcli2 user get").await
 }
 
 async fn run_pcli2_tenant_get(args: Value) -> Result<String, String> {

@@ -306,8 +306,14 @@ Notes:
 | `pcli2_tenant_use` | `pcli2 tenant use --name <tenantName>` | `tenant_name` or `name` |
 | `pcli2_config_get` | `pcli2 config get` | none |
 | `pcli2_config_get_path` | `pcli2 config get path` | none |
-| `pcli2_environment_list` | `pcli2 environment list` | none |
-| `pcli2_environment_get` | `pcli2 environment get` | none |
+| `pcli2_environment_list` | `pcli2 env list` | none |
+| `pcli2_environment_get` | `pcli2 env get` | none |
+| `pcli2_environment_use` | `pcli2 env use --name <name>` | `name` |
+| `pcli2_environment_add` | `pcli2 env add --name <name> [--api-url ...] [--ui-url ...] [--auth-url ...]` | `name` |
+| `pcli2_environment_remove` | `pcli2 env remove --name <name>` | `name` |
+| `pcli2_environment_reset` | `pcli2 env reset` | none |
+| `pcli2_user_list` | `pcli2 user list` | none |
+| `pcli2_user_get` | `pcli2 user get <user_id>` | `user_id` |
 | `pcli2_folder_get` | `pcli2 folder get` | `folder_uuid` or `folder_path` |
 | `pcli2_folder_resolve` | `pcli2 folder resolve` | `folder_path` |
 | `pcli2_folder_dependencies` | `pcli2 folder dependencies` | `folder_path` |
