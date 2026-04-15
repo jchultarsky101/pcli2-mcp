@@ -220,7 +220,7 @@ pub fn tool_list() -> Vec<Value> {
     define_tool(
         &mut tools,
         "pcli2",
-        "Physna Command Line Interface v2 (PCLI2). Runs `pcli2 folder list` or `pcli2 asset list` with the provided options.",
+        "Physna Command Line Interface v2 (PCLI2). Runs `pcli2 folder list` or `pcli2 asset list` with the provided options. For `asset`, `folder_path` is required and `folder_uuid` is not supported.",
         &[],
         |props| {
             add_prop(
@@ -236,17 +236,22 @@ pub fn tool_list() -> Vec<Value> {
             add_prop(
                 props,
                 "folder_uuid",
-                json!({ "type": "string", "description": "Folder UUID." }),
+                json!({ "type": "string", "description": "Folder UUID (folder list only; not supported for asset list)." }),
             );
             add_prop(
                 props,
                 "folder_path",
-                json!({ "type": "string", "description": "Folder path, e.g. /Root/Child." }),
+                json!({ "type": "string", "description": "Folder path, e.g. /Root/Child. Required for asset list." }),
             );
             add_prop(
                 props,
                 "reload",
                 json!({ "type": "boolean", "description": "Reload folder cache from server." }),
+            );
+            add_prop(
+                props,
+                "recursive",
+                json!({ "type": "boolean", "description": "Recursively list assets in subfolders (asset list only)." }),
             );
         },
     );
@@ -295,8 +300,8 @@ pub fn tool_list() -> Vec<Value> {
 
     define_tool(
         &mut tools,
-        "pcli2_config_environment_list",
-        "Runs `pcli2 config environment list`.",
+        "pcli2_environment_list",
+        "Runs `pcli2 environment list`.",
         &[],
         |props| {
             add_headers(props);
@@ -307,8 +312,8 @@ pub fn tool_list() -> Vec<Value> {
 
     define_tool(
         &mut tools,
-        "pcli2_config_environment_get",
-        "Runs `pcli2 config environment get`.",
+        "pcli2_environment_get",
+        "Runs `pcli2 environment get`.",
         &[],
         |props| {
             add_prop(
@@ -684,13 +689,13 @@ pub async fn call_tool(
             "pcli2 config get path",
             run_pcli2_config_get_path(args).await,
         ),
-        "pcli2_config_environment_list" => run_simple_tool(
-            "pcli2 config environment list",
-            run_pcli2_config_environment_list(args).await,
+        "pcli2_environment_list" => run_simple_tool(
+            "pcli2 environment list",
+            run_pcli2_environment_list(args).await,
         ),
-        "pcli2_config_environment_get" => run_simple_tool(
-            "pcli2 config environment get",
-            run_pcli2_config_environment_get(args).await,
+        "pcli2_environment_get" => run_simple_tool(
+            "pcli2 environment get",
+            run_pcli2_environment_get(args).await,
         ),
         "pcli2_tenant_get" => run_simple_tool("pcli2 tenant get", run_pcli2_tenant_get(args).await),
         "pcli2_tenant_state" => {
@@ -816,6 +821,7 @@ async fn run_pcli2_list(args: Value) -> Result<String, String> {
         .get("resource")
         .and_then(|v| v.as_str())
         .unwrap_or("folder");
+    let is_asset = resource == "asset";
     let mut cmd_args: Vec<String> = vec![resource.to_string(), "list".to_string()];
 
     if let Some(tenant) = args.get("tenant").and_then(|v| v.as_str()) {
@@ -847,13 +853,36 @@ async fn run_pcli2_list(args: Value) -> Result<String, String> {
         cmd_args.push("-f".to_string());
         cmd_args.push(format.to_string());
     }
-    if let Some(folder_uuid) = args.get("folder_uuid").and_then(|v| v.as_str()) {
-        cmd_args.push("--folder-uuid".to_string());
-        cmd_args.push(folder_uuid.to_string());
-    }
-    if let Some(folder_path) = args.get("folder_path").and_then(|v| v.as_str()) {
+    let folder_uuid = args.get("folder_uuid").and_then(|v| v.as_str());
+    let folder_path = args.get("folder_path").and_then(|v| v.as_str());
+    if is_asset {
+        if folder_uuid.is_some() {
+            return Err(
+                "'folder_uuid' is not supported for asset list; use 'folder_path' instead."
+                    .to_string(),
+            );
+        }
+        let folder_path = folder_path.ok_or_else(|| {
+            "Missing required argument for asset list: 'folder_path'".to_string()
+        })?;
         cmd_args.push("--folder-path".to_string());
         cmd_args.push(folder_path.to_string());
+        if args
+            .get("recursive")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            cmd_args.push("--recursive".to_string());
+        }
+    } else {
+        if let Some(folder_uuid) = folder_uuid {
+            cmd_args.push("--folder-uuid".to_string());
+            cmd_args.push(folder_uuid.to_string());
+        }
+        if let Some(folder_path) = folder_path {
+            cmd_args.push("--folder-path".to_string());
+            cmd_args.push(folder_path.to_string());
+        }
     }
     if args
         .get("reload")
@@ -931,12 +960,8 @@ async fn run_pcli2_config_get_path(args: Value) -> Result<String, String> {
     run_pcli2_command(cmd_args, "pcli2 config get path").await
 }
 
-async fn run_pcli2_config_environment_list(args: Value) -> Result<String, String> {
-    let mut cmd_args: Vec<String> = vec![
-        "config".to_string(),
-        "environment".to_string(),
-        "list".to_string(),
-    ];
+async fn run_pcli2_environment_list(args: Value) -> Result<String, String> {
+    let mut cmd_args: Vec<String> = vec!["environment".to_string(), "list".to_string()];
     push_flag_if(&mut cmd_args, &args, "headers", "--headers");
     push_flag_if(&mut cmd_args, &args, "pretty", "--pretty");
     push_opt_string(
@@ -944,15 +969,11 @@ async fn run_pcli2_config_environment_list(args: Value) -> Result<String, String
         "-f",
         args.get("format").and_then(|v| v.as_str()),
     );
-    run_pcli2_command(cmd_args, "pcli2 config environment list").await
+    run_pcli2_command(cmd_args, "pcli2 environment list").await
 }
 
-async fn run_pcli2_config_environment_get(args: Value) -> Result<String, String> {
-    let mut cmd_args: Vec<String> = vec![
-        "config".to_string(),
-        "environment".to_string(),
-        "get".to_string(),
-    ];
+async fn run_pcli2_environment_get(args: Value) -> Result<String, String> {
+    let mut cmd_args: Vec<String> = vec!["environment".to_string(), "get".to_string()];
     push_opt_string(
         &mut cmd_args,
         "-n",
@@ -965,7 +986,7 @@ async fn run_pcli2_config_environment_get(args: Value) -> Result<String, String>
         "-f",
         args.get("format").and_then(|v| v.as_str()),
     );
-    run_pcli2_command(cmd_args, "pcli2 config environment get").await
+    run_pcli2_command(cmd_args, "pcli2 environment get").await
 }
 
 async fn run_pcli2_tenant_get(args: Value) -> Result<String, String> {
