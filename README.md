@@ -16,7 +16,7 @@ Project links:
 - `pcli2-mcp`: https://github.com/jchultarsky101/pcli2-mcp
 - `pcli2`: https://github.com/jchultarsky101/pcli2
 
-**Status:** early development (v0.1.11).
+**Status:** early development (v0.1.15).
 
 ## Main Concepts
 
@@ -120,17 +120,12 @@ The GitHub Pages workflow (`.github/workflows/docs.yml`) publishes the site from
 ## Features
 
 - MCP over HTTP (`/mcp`) with JSON-RPC 2.0
-- Tool wrapper for `pcli2 folder list` and `pcli2 asset list`
-- Tool wrapper for `pcli2 asset geometric-match`
+- 30+ MCP tools covering tenant, environment, user, folder, asset, metadata, and match operations
 - **Thumbnail caching**: Thumbnails are cached on disk and served via HTTP URLs, avoiding large base64 payloads in MCP responses
 - **Thumbnail cleanup tool**: Remove expired thumbnails to free up disk space
 - Simple, single-binary Rust server
-- Comprehensive unit and integration tests
-- Improved banner formatting with centered version display
-- Clear instructions for stopping the server (Ctrl+C)
-- Optimized default logging (info level instead of debug)
-- Server start time indicator in logs
-- Modular code architecture for better maintainability
+- Comprehensive test suite (51 unit tests, 10 integration tests)
+- Modular code architecture (cli, error, mcp, pcli2, server)
 
 ## Client Setup (Using `config`)
 
@@ -434,26 +429,6 @@ Use the `pcli2_thumbnail_cache_cleanup` tool to remove expired thumbnails and fr
 - `--port`: listening port (default: `8080`)
 - `--log-level`: logging level for the server (default: `info`)
 - `RUST_LOG`: log level (e.g. `info`, `debug`)
-
-## Enhanced Features
-
-### Improved Logging
-- Default log level changed from `debug` to `info` for cleaner output
-- Server start time indicator in logs for better operational awareness
-- Clear instruction to press `Ctrl+C` to stop the server
-
-### Better User Experience
-- Enhanced banner with centered version display
-- More informative startup messages
-
-### Comprehensive Testing
-- Extensive unit tests for all modules (45+ unit tests)
-- Integration tests covering various scenarios (10+ integration tests)
-- Robust error handling and validation functions
-
-### Modular Architecture
-- Codebase organized into separate modules (cli, error, mcp, pcli2, server)
-- Better maintainability and separation of concerns
 
 ## Troubleshooting
 
