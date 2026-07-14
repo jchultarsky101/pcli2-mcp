@@ -3,7 +3,7 @@
 [![Docs](https://img.shields.io/badge/docs-github%20pages-blue)](https://jchultarsky101.github.io/pcli2-mcp/)
 [![License](https://img.shields.io/github/license/jchultarsky101/pcli2-mcp.svg)](LICENSE)
 [![CI](https://github.com/jchultarsky101/pcli2-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/jchultarsky101/pcli2-mcp/actions/workflows/ci.yml)
-[![Release](https://github.com/jchultarsky101/pcli2-mcp/releases)](https://github.com/jchultarsky101/pcli2-mcp/releases)
+[![Release](https://img.shields.io/github/v/release/jchultarsky101/pcli2-mcp)](https://github.com/jchultarsky101/pcli2-mcp/releases)
 
 **Give AI agents eyes for 3D geometry.**
 
