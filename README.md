@@ -1,35 +1,38 @@
 # pcli2-mcp
 
-Oranda docs: https://jchultarsky101.github.io/pcli2-mcp/
-
 [![Docs](https://img.shields.io/badge/docs-github%20pages-blue)](https://jchultarsky101.github.io/pcli2-mcp/)
 [![License](https://img.shields.io/github/license/jchultarsky101/pcli2-mcp.svg)](LICENSE)
 [![CI](https://github.com/jchultarsky101/pcli2-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/jchultarsky101/pcli2-mcp/actions/workflows/ci.yml)
 [![Release](https://github.com/jchultarsky101/pcli2-mcp/releases)](https://github.com/jchultarsky101/pcli2-mcp/releases)
 
-A lightweight Model Context Protocol (MCP) server over HTTP that wraps the PCLI2 CLI.
-It exposes PCLI2 capabilities as MCP tools so LLM clients can list assets/folders
-and run geometric match queries through a single JSON-RPC endpoint.
+**Give AI agents eyes for 3D geometry.**
+
+`pcli2-mcp` is a Model Context Protocol (MCP) server, written in Rust, that connects LLM clients — Claude, Qwen, local Ollama agents, or any MCP-capable app — to [Physna](https://www.physna.com)'s 3D geometry search. Agents can find geometrically similar parts, detect duplicates, match partial geometry, retrieve thumbnails, and manage asset metadata through natural conversation.
+
+Ask your AI assistant:
+
+> *"Find all parts in /Production that are at least 85% geometrically similar to bracket-v2.stl, and show me their thumbnails."*
+
+…and it composes the right tool calls against your Physna tenant.
 
 Project links:
 
 - `pcli2-mcp`: https://github.com/jchultarsky101/pcli2-mcp
 - `pcli2`: https://github.com/jchultarsky101/pcli2
+- Hosted docs (Oranda): https://jchultarsky101.github.io/pcli2-mcp/
 
 **Status:** early development (v0.1.15).
 
-## Main Concepts
+## Architecture
 
-PCLI2 (Physna Command Line Interface v2) is the official CLI for the Physna public API, focused on 3D geometry search and asset/folder operations. This project is an MCP wrapper around PCLI2: it runs PCLI2 commands behind an MCP JSON-RPC interface so clients like Claude or Qwen can invoke the same capabilities programmatically. For PCLI2 documentation and usage, see the PCLI2 docs site: https://jchultarsky101.github.io/pcli2/ and the repository: https://github.com/jchultarsky101/pcli2.
+PCLI2 (Physna Command Line Interface v2) is the official CLI for the Physna public API, focused on 3D geometry search and asset/folder operations. This project is an MCP wrapper around PCLI2: it runs PCLI2 commands behind an MCP JSON-RPC interface so LLM clients can invoke the same capabilities programmatically.
 
-In short, the flow looks like this:
+The flow:
 
 1. An LLM client (Claude, Qwen, or another MCP-capable app) sends a tool request.
 2. `pcli2-mcp` translates that request into a PCLI2 CLI call.
 3. PCLI2 talks to the Physna API and returns results.
 4. `pcli2-mcp` returns the structured response back to the LLM client.
-
-This keeps your LLM integration stable (MCP over HTTP) while the underlying CLI (PCLI2) remains the single source of truth for Physna API behavior.
 
 ```mermaid
 flowchart LR
@@ -45,6 +48,18 @@ flowchart LR
   CLI -- stdout/stderr --> MCP
   MCP -- JSON-RPC response --> LLM
 ```
+
+### Why wrap the CLI instead of calling the API directly?
+
+- **Single source of truth.** PCLI2 already encodes all Physna API behavior: authentication, tenancy, output formats, error handling. The MCP layer stays thin and never duplicates API logic.
+- **Independent evolution.** MCP is a young, fast-moving protocol. Protocol churn lands in the wrapper; API changes land in the CLI. Neither breaks the other.
+- **Auditability.** Every agent action corresponds to a reproducible CLI command a human could run by hand — useful when reviewing what an autonomous agent actually did.
+
+### Designed for LLM ergonomics
+
+- **Thumbnails as URLs, not blobs.** Image responses return a short-lived HTTP URL (~200 tokens) instead of base64 data (~50K tokens that models routinely mangle). See [Thumbnail Cache](#thumbnail-cache).
+- **Granular tools with explicit arguments.** 30+ narrowly-scoped tools help models select the right operation and fill parameters reliably, instead of one mega-tool with a dozen optional flags.
+- **Structured output.** CSV/JSON response formats keep results machine-readable for downstream reasoning.
 
 ## Quick Start
 
@@ -245,7 +260,7 @@ MCPHost can use a local Ollama model and connect to this MCP server over HTTP.
 
 ### Other MCP Clients
 
-Most MCP-compatible clients accept the same `mcpServers` JSON block. Use the output of `pcli2-mcp config` as the server definition and follow your client’s MCP documentation.
+Most MCP-compatible clients accept the same `mcpServers` JSON block. Use the output of `pcli2-mcp config` as the server definition and follow your client's MCP documentation.
 
 ## MCP API
 
@@ -447,7 +462,7 @@ Open an issue with a clear repro, expected behavior, and logs (set `RUST_LOG=deb
 
 ## Maintainers
 
-Maintainers are listed in the repository’s contributor/maintainer roster.
+Maintained by [Julian Chultarsky](https://github.com/jchultarsky101).
 
 ## Changelog
 
