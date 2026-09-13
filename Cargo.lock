@@ -551,7 +551,7 @@ dependencies = [
 
 [[package]]
 name = "pcli2-mcp"
-version = "0.1.15"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
