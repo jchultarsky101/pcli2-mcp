@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [0.2.0] - 2026-09-13
+
+### Changed
+
+- **Requires pcli2 2.0 or newer.** Tool definitions were synced with the pcli2 2.0.1 command tree.
+- `pcli2_asset_thumbnail` now passes `--output` (pcli2 2.0 removed `--file`); thumbnail calls failed against pcli2 2.x before this fix.
+- Tool schemas and argv construction are generated from a single declarative table (`src/tools.rs`); arguments are validated (required keys, enums, numeric ranges, types) before pcli2 runs, and string-typed booleans/numbers are accepted.
+- pcli2 is always spawned non-interactively with `PCLI2_NO_INPUT=1`, `PCLI2_NO_COLOR=1`, `PCLI2_NO_UPDATE_CHECK=1` and `PCLI2_ERROR_FORMAT=json`; JSON error lines from pcli2 are rendered as `LEVEL (kind): message` in tool errors.
+- `pcli2` (legacy list tool) with `resource=asset` now accepts `folder_uuid` as well as `folder_path`.
+- `pcli2_tenant_use` requires `name` (or the legacy alias `tenant_name`) instead of failing at pcli2.
+- Long flags (`--tenant`, `--format`) are used instead of `-t`/`-f`.
+
+### Added
+
+- New pcli2 2.x options on existing tools: `recursive`, `checkpoint`, `format=xls` + `output` (folder geometric-match), `limit`/`threshold` (visual-match), `limit` (text-match), `reload` (folder resolve), metadata type `url`, `yes` on mutating tools.
+- New tools: `pcli2_doctor`, `pcli2_tenant_clear`, `pcli2_tenant_metadata_list`, `pcli2_folder_list`, `pcli2_folder_create`, `pcli2_folder_delete`, `pcli2_folder_rename`, `pcli2_folder_move`, `pcli2_folder_download`, `pcli2_folder_upload`, `pcli2_folder_thumbnail`, `pcli2_auth_login`, `pcli2_auth_logout`, `pcli2_auth_get`, `pcli2_auth_clear_token`, `pcli2_auth_expiration`, `pcli2_asset_list`, `pcli2_asset_create`, `pcli2_asset_create_batch`, `pcli2_asset_delete`, `pcli2_asset_download`, `pcli2_asset_dependency_diff`, `pcli2_asset_geometric_match`, `pcli2_asset_similarity`, `pcli2_asset_counts`, `pcli2_asset_inventory`, `pcli2_asset_metadata_get`, `pcli2_asset_metadata_create_batch`, `pcli2_asset_metadata_inference`, `pcli2_config_validate`, `pcli2_config_export`, `pcli2_config_import`, `pcli2_cache_clear`.
+- Unit test table with an argv case for every tool (fails when a tool is added without one); integration tests with an argv-echoing mock pcli2 covering `call_tool`, the thumbnail `--output` path, the child environment, and JSON error rendering.
+
 ## [0.1.15] - 2026-04-15
 
 ### Changed

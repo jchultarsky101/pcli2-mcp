@@ -21,7 +21,7 @@ Project links:
 - `pcli2`: https://github.com/jchultarsky101/pcli2
 - Hosted docs (Oranda): https://jchultarsky101.github.io/pcli2-mcp/
 
-**Status:** early development (v0.1.15).
+**Status:** early development (v0.2.0).
 
 ## Architecture
 
@@ -63,8 +63,9 @@ flowchart LR
 
 ## Quick Start
 
-1. Install PCLI2 and authenticate.
+1. Install PCLI2 (version 2.0 or newer) and authenticate.
    Follow the PCLI2 docs and make sure `pcli2` is on your `PATH`: https://jchultarsky101.github.io/pcli2/
+   Set `PCLI2_BIN` to point at a specific binary if it is not on the `PATH`.
 2. Install `pcli2-mcp` (see Installation below).
 3. Run the server:
 
@@ -135,12 +136,14 @@ The GitHub Pages workflow (`.github/workflows/docs.yml`) publishes the site from
 ## Features
 
 - MCP over HTTP (`/mcp`) with JSON-RPC 2.0
-- 30+ MCP tools covering tenant, environment, user, folder, asset, metadata, and match operations
+- 60+ MCP tools covering every pcli2 2.x command: tenant, folder, asset, metadata, match/similarity, auth, config, environment, user, cache and doctor
+- Declarative tool table: one spec per pcli2 command drives both the advertised JSON schema and the argv, with argument validation (required, enums, numeric ranges) before pcli2 is spawned
+- pcli2 is always run non-interactively (`PCLI2_NO_INPUT`, `PCLI2_NO_COLOR`, `PCLI2_NO_UPDATE_CHECK`) with structured errors (`PCLI2_ERROR_FORMAT=json`) rendered into tool error messages
 - **Thumbnail caching**: Thumbnails are cached on disk and served via HTTP URLs, avoiding large base64 payloads in MCP responses
 - **Thumbnail cleanup tool**: Remove expired thumbnails to free up disk space
 - Simple, single-binary Rust server
-- Comprehensive test suite (51 unit tests, 10 integration tests)
-- Modular code architecture (cli, error, mcp, pcli2, server)
+- Comprehensive test suite (unit tests with an argv case for every tool, plus integration tests against a mock pcli2)
+- Modular code architecture (cli, error, mcp, pcli, tools, server, thumbnail)
 
 ## Client Setup (Using `config`)
 
@@ -303,19 +306,70 @@ Example `tools/call` (list assets under `/Julian` as CSV):
 
 Notes:
 
-- Most asset tools require either `uuid` or `path`.
-- Most folder tools require either `folder_uuid` or `folder_path` (or a list of `folder_path`).
+- Tool names mirror the pcli2 command tree: `pcli2_<group>_<command>`.
+- Most asset tools require either `uuid` or `path`; most folder tools require either `folder_uuid` or `folder_path`.
+- Boolean flags such as `headers`, `pretty`, `metadata`, `progress`, `dry_run` map to the pcli2 flag of the same name. Mutating tools accept `yes` to auto-confirm prompts.
+- File and directory arguments (`input`, `output`, `checkpoint`) refer to the filesystem of the host running `pcli2-mcp`.
+- Argument values are validated (required keys, enums, numeric ranges) before pcli2 is spawned; violations return a JSON-RPC error without running anything.
 
 | Tool | PCLI2 Command | Required Arguments |
 | --- | --- | --- |
-| `pcli2` | `pcli2 folder list` / `pcli2 asset list` | `folder_path` when `resource=asset` |
+| `pcli2` | `pcli2 folder list` / `pcli2 asset list` (legacy combined tool) | `folder_path` or `folder_uuid` when `resource=asset` |
 | `pcli2_version` | `pcli2 --version` | none |
+| `pcli2_doctor` | `pcli2 doctor` | none |
 | `pcli2_tenant_list` | `pcli2 tenant list` | none |
 | `pcli2_tenant_get` | `pcli2 tenant get` | none |
 | `pcli2_tenant_state` | `pcli2 tenant state` | none |
-| `pcli2_tenant_use` | `pcli2 tenant use --name <tenantName>` | `tenant_name` or `name` |
+| `pcli2_tenant_use` | `pcli2 tenant use --name <name>` | `name` (or legacy `tenant_name`) |
+| `pcli2_tenant_clear` | `pcli2 tenant clear` | none |
+| `pcli2_tenant_metadata_list` | `pcli2 tenant metadata list` | none |
+| `pcli2_folder_list` | `pcli2 folder list` | none |
+| `pcli2_folder_get` | `pcli2 folder get` | `folder_uuid` or `folder_path` |
+| `pcli2_folder_create` | `pcli2 folder create` | `name`, plus `parent_folder_uuid` or `parent_folder_path` |
+| `pcli2_folder_delete` | `pcli2 folder delete` | `folder_uuid` or `folder_path` |
+| `pcli2_folder_rename` | `pcli2 folder rename` | `name`, plus `folder_uuid` or `folder_path` |
+| `pcli2_folder_move` | `pcli2 folder move` | `folder_uuid` or `folder_path`, plus `parent_folder_uuid` or `parent_folder_path` |
+| `pcli2_folder_resolve` | `pcli2 folder resolve` | `folder_path` |
+| `pcli2_folder_download` | `pcli2 folder download` | `folder_uuid` or `folder_path` |
+| `pcli2_folder_upload` | `pcli2 folder upload` | `input`, plus `folder_uuid` or `folder_path` |
+| `pcli2_folder_thumbnail` | `pcli2 folder thumbnail` | `folder_uuid` or `folder_path` |
+| `pcli2_folder_dependencies` | `pcli2 folder dependencies` | `folder_path` |
+| `pcli2_folder_geometric_match` | `pcli2 folder geometric-match` | `folder_path` |
+| `pcli2_folder_part_match` | `pcli2 folder part-match` | `folder_path` |
+| `pcli2_folder_visual_match` | `pcli2 folder visual-match` | `folder_path` |
+| `pcli2_auth_login` | `pcli2 auth login` | `client_id`, `client_secret` |
+| `pcli2_auth_logout` | `pcli2 auth logout` | none |
+| `pcli2_auth_get` | `pcli2 auth get` | none |
+| `pcli2_auth_clear_token` | `pcli2 auth clear-token` | none |
+| `pcli2_auth_expiration` | `pcli2 auth expiration` | none |
+| `pcli2_asset_list` | `pcli2 asset list` | `folder_uuid` or `folder_path` |
+| `pcli2_asset_get` | `pcli2 asset get` | `uuid` or `path` |
+| `pcli2_asset_create` | `pcli2 asset create` | `input`, plus `folder_uuid` or `folder_path` |
+| `pcli2_asset_create_batch` | `pcli2 asset create-batch` | `input`, plus `folder_uuid` or `folder_path` |
+| `pcli2_asset_delete` | `pcli2 asset delete` | `uuid` or `path` |
+| `pcli2_asset_download` | `pcli2 asset download` | `uuid` or `path` |
+| `pcli2_asset_dependencies` | `pcli2 asset dependencies` | `uuid` or `path` |
+| `pcli2_asset_dependency_diff` | `pcli2 asset dependency-diff` | `reference_uuid` or `reference_path`, plus `candidate_uuid` or `candidate_path` |
+| `pcli2_asset_geometric_match` | `pcli2 asset geometric-match` | `uuid` or `path` |
+| `pcli2_geometric_match` | `pcli2 asset geometric-match` (legacy alias) | `uuid` or `path` |
+| `pcli2_asset_part_match` | `pcli2 asset part-match` | `uuid` or `path` |
+| `pcli2_asset_visual_match` | `pcli2 asset visual-match` | `uuid` or `path` |
+| `pcli2_asset_text_match` | `pcli2 asset text-match` | `text` |
+| `pcli2_asset_similarity` | `pcli2 asset similarity` | `reference_uuid` or `reference_path`, plus `candidate_uuid` or `candidate_path` |
+| `pcli2_asset_reprocess` | `pcli2 asset reprocess` | `uuid` or `path` |
+| `pcli2_asset_counts` | `pcli2 asset counts` | none |
+| `pcli2_asset_inventory` | `pcli2 asset inventory` | none |
+| `pcli2_asset_thumbnail` | `pcli2 asset thumbnail` | `uuid` or `path` |
+| `pcli2_asset_metadata_get` | `pcli2 asset metadata get` | `uuid` or `path` |
+| `pcli2_asset_metadata_create` | `pcli2 asset metadata create` | `name`, `value`, plus `uuid` or `path` |
+| `pcli2_asset_metadata_delete` | `pcli2 asset metadata delete` | `name`, plus `uuid` or `path` |
+| `pcli2_asset_metadata_create_batch` | `pcli2 asset metadata create-batch` | `input` |
+| `pcli2_asset_metadata_inference` | `pcli2 asset metadata inference` | `path`, `name` |
 | `pcli2_config_get` | `pcli2 config get` | none |
 | `pcli2_config_get_path` | `pcli2 config get path` | none |
+| `pcli2_config_validate` | `pcli2 config validate` | none |
+| `pcli2_config_export` | `pcli2 config export` | none |
+| `pcli2_config_import` | `pcli2 config import` | none |
 | `pcli2_environment_list` | `pcli2 env list` | none |
 | `pcli2_environment_get` | `pcli2 env get` | none |
 | `pcli2_environment_use` | `pcli2 env use --name <name>` | `name` |
@@ -324,22 +378,10 @@ Notes:
 | `pcli2_environment_reset` | `pcli2 env reset` | none |
 | `pcli2_user_list` | `pcli2 user list` | none |
 | `pcli2_user_get` | `pcli2 user get <user_id>` | `user_id` |
-| `pcli2_folder_get` | `pcli2 folder get` | `folder_uuid` or `folder_path` |
-| `pcli2_folder_resolve` | `pcli2 folder resolve` | `folder_path` |
-| `pcli2_folder_dependencies` | `pcli2 folder dependencies` | `folder_path` |
-| `pcli2_folder_geometric_match` | `pcli2 folder geometric-match` | `folder_path` |
-| `pcli2_folder_part_match` | `pcli2 folder part-match` | `folder_path` |
-| `pcli2_folder_visual_match` | `pcli2 folder visual-match` | `folder_path` |
-| `pcli2_asset_get` | `pcli2 asset get` | `uuid` or `path` |
-| `pcli2_asset_dependencies` | `pcli2 asset dependencies` | `uuid` or `path` |
-| `pcli2_asset_thumbnail` | `pcli2 asset thumbnail` | `uuid` or `path` |
-| `pcli2_thumbnail_cache_cleanup` | Cleanup expired thumbnails | none |
-| `pcli2_geometric_match` | `pcli2 asset geometric-match` | `uuid` or `path` |
-| `pcli2_asset_part_match` | `pcli2 asset part-match` | `uuid` or `path` |
-| `pcli2_asset_visual_match` | `pcli2 asset visual-match` | `uuid` or `path` |
-| `pcli2_asset_text_match` | `pcli2 asset text-match` | `text` |
-| `pcli2_asset_metadata_create` | `pcli2 asset metadata create` | `name`, `value`, plus `uuid` or `path` |
-| `pcli2_asset_metadata_delete` | `pcli2 asset metadata delete` | `name`, plus `uuid` or `path` |
+| `pcli2_cache_clear` | `pcli2 cache clear` | none |
+| `pcli2_thumbnail_cache_cleanup` | Cleanup expired thumbnails in the MCP server's cache | none |
+
+Run `tools/list` for the full argument schema of each tool.
 
 Example:
 
