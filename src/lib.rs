@@ -4,6 +4,7 @@ pub mod mcp;
 pub mod pcli;
 pub mod server;
 pub mod thumbnail;
+pub mod tools;
 
 use anyhow::Result;
 use clap::ArgMatches;
