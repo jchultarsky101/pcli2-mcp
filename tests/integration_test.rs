@@ -1,8 +1,10 @@
 use axum::body::Bytes;
+use axum::http::header::AUTHORIZATION;
+use axum::http::{HeaderMap, HeaderValue};
 use axum::{body::to_bytes, extract::State, http::StatusCode, response::IntoResponse};
 use pcli2_mcp::{
     AppState,
-    mcp::handle_mcp,
+    mcp::{authed_mcp, handle_mcp},
     pcli::{PCLI2_BIN_ENV, call_tool, run_pcli2_command, run_pcli2_tenant_list, run_pcli2_version},
     thumbnail::{ThumbnailCache, ThumbnailCacheConfig},
 };
@@ -59,6 +61,10 @@ fn make_mock_pcli2() -> PathBuf {
     let script = r#"#!/bin/sh
 # Mock pcli2: echoes its arguments one per line so tests can assert the argv,
 # plus the environment the server is expected to set.
+if [ "$PCLI2_TEST_FAIL" = "1" ]; then
+  echo '{"code":67,"kind":"fail","level":"ERROR","message":"forced test failure"}' >&2
+  exit 67
+fi
 if [ "$1" = "--version" ]; then
   echo "pcli2 9.9.9"
   exit 0
@@ -79,7 +85,7 @@ if [ "$1" = "asset" ] && [ "$2" = "thumbnail" ]; then
   exit 0
 fi
 for a in "$@"; do echo "$a"; done
-echo "ENV NO_INPUT=${PCLI2_NO_INPUT} NO_COLOR=${PCLI2_NO_COLOR} NO_UPDATE_CHECK=${PCLI2_NO_UPDATE_CHECK} ERROR_FORMAT=${PCLI2_ERROR_FORMAT}"
+echo "ENV NO_INPUT=${PCLI2_NO_INPUT} NO_COLOR=${PCLI2_NO_COLOR} NO_UPDATE_CHECK=${PCLI2_NO_UPDATE_CHECK} ERROR_FORMAT=${PCLI2_ERROR_FORMAT} FORMAT=${PCLI2_FORMAT} SAFE_CSV=${PCLI2_SAFE_CSV}"
 exit 0
 "#;
     fs::write(&script_path, script).expect("write mock pcli2");
@@ -110,7 +116,7 @@ async fn mock_pcli2_version_and_tenant_list() {
     let list = run_pcli2_tenant_list(args).await.expect("tenant list");
     assert_eq!(
         list,
-        "tenant\nlist\n--format\njson\nENV NO_INPUT=1 NO_COLOR=1 NO_UPDATE_CHECK=1 ERROR_FORMAT=json"
+        "tenant\nlist\n--format\njson\nENV NO_INPUT=1 NO_COLOR=1 NO_UPDATE_CHECK=1 ERROR_FORMAT=json FORMAT=json SAFE_CSV=1"
     );
 }
 
@@ -134,6 +140,8 @@ async fn jsonrpc_parse_error_returns_32700() {
         server_name: "test".to_string(),
         server_version: "0.0.0".to_string(),
         thumbnail_cache: std::sync::Arc::new(None),
+        token: None,
+        read_only: false,
     };
     let response = handle_mcp(State(state), Bytes::from("{bad json"))
         .await
@@ -152,6 +160,8 @@ async fn jsonrpc_invalid_request_returns_32600() {
         server_name: "test".to_string(),
         server_version: "0.0.0".to_string(),
         thumbnail_cache: std::sync::Arc::new(None),
+        token: None,
+        read_only: false,
     };
     let response = handle_mcp(State(state), Bytes::from(r#"{"jsonrpc":"2.0","id":1}"#))
         .await
@@ -170,6 +180,8 @@ async fn jsonrpc_notification_returns_no_content() {
         server_name: "test".to_string(),
         server_version: "0.0.0".to_string(),
         thumbnail_cache: std::sync::Arc::new(None),
+        token: None,
+        read_only: false,
     };
     let response = handle_mcp(
         State(state),
@@ -195,6 +207,8 @@ async fn logging_on_tools_call_outputs_command() {
         server_name: "mock".to_string(),
         server_version: "0.0.0".to_string(),
         thumbnail_cache: std::sync::Arc::new(None),
+        token: None,
+        read_only: false,
     };
 
     let request = json!({
@@ -218,6 +232,8 @@ async fn test_initialize_method() {
         server_name: "test".to_string(),
         server_version: "0.0.0".to_string(),
         thumbnail_cache: std::sync::Arc::new(None),
+        token: None,
+        read_only: false,
     };
 
     let request = json!({
@@ -247,6 +263,8 @@ async fn test_tools_list_method() {
         server_name: "test".to_string(),
         server_version: "0.0.0".to_string(),
         thumbnail_cache: std::sync::Arc::new(None),
+        token: None,
+        read_only: false,
     };
 
     let request = json!({
@@ -275,6 +293,8 @@ async fn test_unknown_method_returns_error() {
         server_name: "test".to_string(),
         server_version: "0.0.0".to_string(),
         thumbnail_cache: std::sync::Arc::new(None),
+        token: None,
+        read_only: false,
     };
 
     let request = json!({
@@ -302,6 +322,8 @@ async fn test_jsonrpc_wrong_version() {
         server_name: "test".to_string(),
         server_version: "0.0.0".to_string(),
         thumbnail_cache: std::sync::Arc::new(None),
+        token: None,
+        read_only: false,
     };
 
     let request = json!({
@@ -468,6 +490,8 @@ async fn tools_list_advertises_new_pcli2_v2_tools() {
         server_name: "test".to_string(),
         server_version: "0.0.0".to_string(),
         thumbnail_cache: std::sync::Arc::new(None),
+        token: None,
+        read_only: false,
     };
     let request = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}});
     let response = handle_mcp(State(state), Bytes::from(request.to_string()))
@@ -485,15 +509,23 @@ async fn tools_list_advertises_new_pcli2_v2_tools() {
         "pcli2",
         "pcli2_doctor",
         "pcli2_tenant_metadata_list",
+        "pcli2_tenant_failures",
+        "pcli2_tenant_usage",
         "pcli2_folder_list",
         "pcli2_folder_create",
         "pcli2_folder_delete",
+        "pcli2_folder_description_get",
+        "pcli2_folder_description_set",
+        "pcli2_folder_description_clear",
         "pcli2_folder_upload",
         "pcli2_asset_list",
         "pcli2_asset_create",
         "pcli2_asset_delete",
         "pcli2_asset_similarity",
         "pcli2_asset_dependency_diff",
+        "pcli2_asset_resolve_dependency",
+        "pcli2_asset_move",
+        "pcli2_asset_diagnose",
         "pcli2_asset_counts",
         "pcli2_asset_inventory",
         "pcli2_asset_metadata_get",
@@ -501,6 +533,12 @@ async fn tools_list_advertises_new_pcli2_v2_tools() {
         "pcli2_asset_metadata_inference",
         "pcli2_auth_expiration",
         "pcli2_config_validate",
+        "pcli2_report_list",
+        "pcli2_report_create",
+        "pcli2_report_download",
+        "pcli2_catalog_list",
+        "pcli2_catalog_geometric_match",
+        "pcli2_api",
         "pcli2_cache_clear",
         "pcli2_thumbnail_cache_cleanup",
     ] {
@@ -511,4 +549,293 @@ async fn tools_list_advertises_new_pcli2_v2_tools() {
         assert!(tool["inputSchema"]["properties"].is_object());
         assert!(tool["inputSchema"]["required"].is_array());
     }
+}
+
+// ---------------------------------------------------------------------------
+// Error contract (H1): execution/validation failures surface as `isError`
+// content so the model can self-correct; only malformed JSON-RPC raises a
+// JSON-RPC error.
+// ---------------------------------------------------------------------------
+
+async fn response_json(response: axum::response::Response) -> Value {
+    let body = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("read body");
+    serde_json::from_slice(&body).expect("json")
+}
+
+fn tools_call(name: &str, arguments: Value) -> Value {
+    json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": { "name": name, "arguments": arguments }
+    })
+}
+
+fn bearer_headers(token: Option<&str>) -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    if let Some(token) = token {
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {token}")).unwrap(),
+        );
+    }
+    headers
+}
+
+#[tokio::test]
+async fn successful_call_omits_is_error() {
+    let _lock = test_env_lock().lock().await;
+    let script_path = make_mock_pcli2();
+    let _guard = EnvVarGuard::set(PCLI2_BIN_ENV, script_path.to_string_lossy().as_ref());
+
+    let state = AppState {
+        server_name: "test".to_string(),
+        server_version: "0.0.0".to_string(),
+        thumbnail_cache: std::sync::Arc::new(None),
+        token: None,
+        read_only: false,
+    };
+    let response = handle_mcp(
+        State(state),
+        Bytes::from(serde_json::to_string(&tools_call("pcli2_tenant_list", json!({}))).unwrap()),
+    )
+    .await
+    .into_response();
+    let value = response_json(response).await;
+    // A success carries `result` without a top-level `error`, and no `isError`.
+    assert!(value.get("error").is_none() || value["error"].is_null());
+    assert!(value["result"].is_object());
+    assert!(value["result"]["isError"].is_null());
+}
+
+#[tokio::test]
+async fn execution_failure_reports_is_error() {
+    let _lock = test_env_lock().lock().await;
+    let script_path = make_mock_pcli2();
+    let _guard = EnvVarGuard::set(PCLI2_BIN_ENV, script_path.to_string_lossy().as_ref());
+    // Force pcli2 to exit non-zero for any command.
+    let _fail = EnvVarGuard::set("PCLI2_TEST_FAIL", "1");
+
+    let state = AppState {
+        server_name: "test".to_string(),
+        server_version: "0.0.0".to_string(),
+        thumbnail_cache: std::sync::Arc::new(None),
+        token: None,
+        read_only: false,
+    };
+    let response = handle_mcp(
+        State(state),
+        Bytes::from(serde_json::to_string(&tools_call("pcli2_tenant_list", json!({}))).unwrap()),
+    )
+    .await
+    .into_response();
+    assert_eq!(response.status(), StatusCode::OK);
+    let value = response_json(response).await;
+    // The failed pcli2 run is a tool result with `isError: true`, not a JSON-RPC
+    // error, so the model reads the message and can retry.
+    assert!(value.get("error").is_none() || value["error"].is_null());
+    assert_eq!(value["result"]["isError"], json!(true));
+    assert!(
+        value["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("forced test failure"),
+        "error message not forwarded: {}",
+        value["result"]["content"][0]["text"]
+    );
+}
+
+#[tokio::test]
+async fn validation_error_reports_is_error() {
+    let state = AppState {
+        server_name: "test".to_string(),
+        server_version: "0.0.0".to_string(),
+        thumbnail_cache: std::sync::Arc::new(None),
+        token: None,
+        read_only: false,
+    };
+    let response = handle_mcp(
+        State(state),
+        Bytes::from(serde_json::to_string(&tools_call("pcli2_asset_get", json!({}))).unwrap()),
+    )
+    .await
+    .into_response();
+    let value = response_json(response).await;
+    assert_eq!(value["result"]["isError"], json!(true));
+    assert!(
+        value["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("provide one of 'uuid' or 'path'")
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Read-only mode (H2a)
+// ---------------------------------------------------------------------------
+
+fn read_only_state() -> AppState {
+    AppState {
+        server_name: "test".to_string(),
+        server_version: "0.0.0".to_string(),
+        thumbnail_cache: std::sync::Arc::new(None),
+        token: None,
+        read_only: true,
+    }
+}
+
+#[tokio::test]
+async fn read_only_refuses_mutation() {
+    let state = read_only_state();
+    let response = handle_mcp(
+        State(state),
+        Bytes::from(
+            serde_json::to_string(&tools_call(
+                "pcli2_asset_delete",
+                json!({"uuid": "u", "yes": true}),
+            ))
+            .unwrap(),
+        ),
+    )
+    .await
+    .into_response();
+    let value = response_json(response).await;
+    assert_eq!(value["result"]["isError"], json!(true));
+    assert!(
+        value["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("read-only"),
+        "refusal message: {}",
+        value["result"]["content"][0]["text"]
+    );
+}
+
+#[tokio::test]
+async fn read_only_refuses_api_write() {
+    let state = read_only_state();
+    let response = handle_mcp(
+        State(state),
+        Bytes::from(
+            serde_json::to_string(&tools_call(
+                "pcli2_api",
+                json!({"path": "/x", "method": "POST", "field": ["a=1"]}),
+            ))
+            .unwrap(),
+        ),
+    )
+    .await
+    .into_response();
+    let value = response_json(response).await;
+    assert_eq!(value["result"]["isError"], json!(true));
+    assert!(
+        value["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("GET/HEAD"),
+        "refusal message: {}",
+        value["result"]["content"][0]["text"]
+    );
+}
+
+#[tokio::test]
+async fn read_only_allows_api_read() {
+    let _lock = test_env_lock().lock().await;
+    let script_path = make_mock_pcli2();
+    let _guard = EnvVarGuard::set(PCLI2_BIN_ENV, script_path.to_string_lossy().as_ref());
+
+    let state = read_only_state();
+    let response = handle_mcp(
+        State(state),
+        Bytes::from(
+            serde_json::to_string(&tools_call(
+                "pcli2_api",
+                json!({"path": "/tenants/me", "method": "GET"}),
+            ))
+            .unwrap(),
+        ),
+    )
+    .await
+    .into_response();
+    let value = response_json(response).await;
+    // A GET with no body is permitted: not refused, so `isError` is absent.
+    assert!(value["result"]["isError"].is_null());
+    assert!(
+        value["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("api")
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Bearer-token authentication (H2a)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn open_route_requires_no_token() {
+    let state = AppState {
+        token: None,
+        ..read_only_state()
+    };
+    let request = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}});
+    let response = authed_mcp(
+        State(state),
+        bearer_headers(None),
+        Bytes::from(serde_json::to_string(&request).unwrap()),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn missing_token_is_rejected() {
+    let state = AppState {
+        token: Some("s3cr3t".to_string()),
+        ..read_only_state()
+    };
+    let request = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}});
+    let response = authed_mcp(
+        State(state),
+        bearer_headers(None),
+        Bytes::from(serde_json::to_string(&request).unwrap()),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn invalid_token_is_rejected() {
+    let state = AppState {
+        token: Some("s3cr3t".to_string()),
+        ..read_only_state()
+    };
+    let request = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}});
+    let response = authed_mcp(
+        State(state),
+        bearer_headers(Some("wrong")),
+        Bytes::from(serde_json::to_string(&request).unwrap()),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn valid_token_is_allowed() {
+    let state = AppState {
+        token: Some("s3cr3t".to_string()),
+        ..read_only_state()
+    };
+    let request = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}});
+    let response = authed_mcp(
+        State(state),
+        bearer_headers(Some("s3cr3t")),
+        Bytes::from(serde_json::to_string(&request).unwrap()),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let value = response_json(response).await;
+    assert!(value["result"]["tools"].is_array());
 }

@@ -20,6 +20,10 @@ pub struct AppState {
     pub server_name: String,
     pub server_version: String,
     pub thumbnail_cache: Arc<Option<ThumbnailCache>>,
+    /// When `Some`, every `/mcp` request must carry this bearer token.
+    pub token: Option<String>,
+    /// When true, refuse mutating tools and constrain `pcli2_api` to reads.
+    pub read_only: bool,
 }
 
 pub async fn run() -> Result<()> {
@@ -91,6 +95,8 @@ mod tests {
             server_name: "test-server".to_string(),
             server_version: "1.0.0".to_string(),
             thumbnail_cache: Arc::new(None),
+            token: None,
+            read_only: false,
         };
         let cloned_state = state.clone();
 

@@ -21,7 +21,7 @@ Project links:
 - `pcli2`: https://github.com/jchultarsky101/pcli2
 - Hosted docs (Oranda): https://jchultarsky101.github.io/pcli2-mcp/
 
-**Status:** early development (v0.2.0).
+**Status:** current with **pcli2 2.8** (tool table last synced to pcli2 2.8.1).
 
 ## Architecture
 
@@ -136,13 +136,16 @@ The GitHub Pages workflow (`.github/workflows/docs.yml`) publishes the site from
 ## Features
 
 - MCP over HTTP (`/mcp`) with JSON-RPC 2.0
-- 60+ MCP tools covering every pcli2 2.x command: tenant, folder, asset, metadata, match/similarity, auth, config, environment, user, cache and doctor
+- 85 MCP tools covering every pcli2 2.8 command: tenant, folder, asset, metadata, match/similarity, report, catalog, auth, config, environment, user, cache, a generic `api` passthrough, and doctor
 - Declarative tool table: one spec per pcli2 command drives both the advertised JSON schema and the argv, with argument validation (required, enums, numeric ranges) before pcli2 is spawned
-- pcli2 is always run non-interactively (`PCLI2_NO_INPUT`, `PCLI2_NO_COLOR`, `PCLI2_NO_UPDATE_CHECK`) with structured errors (`PCLI2_ERROR_FORMAT=json`) rendered into tool error messages
+- pcli2 is always run non-interactively (`PCLI2_NO_INPUT`, `PCLI2_NO_COLOR`, `PCLI2_NO_UPDATE_CHECK`) with machine-readable errors (`PCLI2_ERROR_FORMAT=json`) rendered into tool error messages, `PCLI2_FORMAT=json` so every `--format` defaults to the machine-readable JSON that LLM clients consume, and `PCLI2_SAFE_CSV=1` so any CSV a tool emits is guarded against spreadsheet formula injection
+- **Self-correcting errors**: a pcli2 run that fails (bad input, a lookup miss, a non-zero exit) is returned to the model as `isError: true` tool content, so it can read the message and retry — only malformed JSON-RPC (bad JSON, unknown method) raises a JSON-RPC error
+- **Security**: optional `--token` / `MCP_TOKEN` bearer auth on `/mcp` (compared in constant time), and `--read-only` mode that refuses any tool that mutates Physna data, auth or config state (and constrains `pcli2_api` to `GET`/`HEAD`)
+- **Secret hygiene**: the OAuth2 `client_secret` is forwarded to pcli2 via `PCLI2_CLIENT_SECRET` instead of argv, so it never appears in a process list or in the execution log
 - **Thumbnail caching**: Thumbnails are cached on disk and served via HTTP URLs, avoiding large base64 payloads in MCP responses
 - **Thumbnail cleanup tool**: Remove expired thumbnails to free up disk space
 - Simple, single-binary Rust server
-- Comprehensive test suite (unit tests with an argv case for every tool, plus integration tests against a mock pcli2)
+- Comprehensive test suite (unit tests with an argv case for every tool, plus integration tests against a mock pcli2 covering the error contract, read-only mode and auth)
 - Modular code architecture (cli, error, mcp, pcli, tools, server, thumbnail)
 
 ## Client Setup (Using `config`)
@@ -164,6 +167,31 @@ pcli2-mcp serve --host localhost --port 8080 --log-level info
 ```
 
 Use `--host 0.0.0.0` to listen on all interfaces.
+
+### Security
+
+The `/mcp` endpoint can run any pcli2 command, including destructive ones, as the
+user the server runs as — so never expose it unsecured. The default bind is
+`localhost`, which is safe on its own. For anything else:
+
+```bash
+# Require a shared secret on every request, in read-only mode:
+pcli2-mcp serve --host 0.0.0.0 --token "$(openssl rand -hex 24)" --read-only
+```
+
+- **Bearer token** (`--token <TOKEN>` or the `MCP_TOKEN` environment variable):
+  when set, every `POST /mcp` request must send
+  `Authorization: Bearer <TOKEN>` (compared in constant time); anything else gets
+  `401`. When unset, the route is open — correct only for loopback.
+- **Read-only** (`--read-only`): refuse every tool that mutates Physna data, an
+  authentication session, or local config state (`*_create`, `*_delete`, `*_move`,
+  `*_set`, `*_clear`, `*_import`, `env use`, `tenant use`, `auth …`, …). The generic
+  `pcli2_api` passthrough is limited to `GET`/`HEAD` with no request body. Refusals
+  are returned as `isError: true` content so the model can adapt.
+  `pcli2_cache_clear` and `pcli2_thumbnail_cache_cleanup` stay allowed (local maintenance).
+- **Secrets**: the OAuth2 `client_secret` is handed to pcli2 via the
+  `PCLI2_CLIENT_SECRET` environment variable rather than on the command line, so it
+  never shows up in a process list or in the execution log.
 
 Print client config (pretty JSON):
 
@@ -271,6 +299,11 @@ The server implements MCP over HTTP with a JSON-RPC 2.0 interface.
 
 - `POST /mcp`
 - Methods: `initialize`, `tools/list`, `tools/call`
+- When authenticated, requests must carry `Authorization: Bearer <TOKEN>`; otherwise `/mcp` returns `401`.
+- **Error contract**: a pcli2 run that fails is returned as a tool result with
+  `isError: true` (and a `content[].text` message) so the calling model can read
+  it and self-correct; only malformed requests and unknown methods raise a
+  JSON-RPC error.
 
 Example `tools/list`:
 
@@ -310,6 +343,7 @@ Notes:
 - Most asset tools require either `uuid` or `path`; most folder tools require either `folder_uuid` or `folder_path`.
 - Boolean flags such as `headers`, `pretty`, `metadata`, `progress`, `dry_run` map to the pcli2 flag of the same name. Mutating tools accept `yes` to auto-confirm prompts.
 - File and directory arguments (`input`, `output`, `checkpoint`) refer to the filesystem of the host running `pcli2-mcp`.
+- Output is **JSON by default** (`PCLI2_FORMAT=json` is set for every pcli2 call). Pass `format` as `"json"` (the default), `"csv"`, or — where the command supports it — `"tree"`/`"table"`/`"xls"`/`"xlsx"` to change it. For LLM work, keep it JSON.
 - Argument values are validated (required keys, enums, numeric ranges) before pcli2 is spawned; violations return a JSON-RPC error without running anything.
 
 | Tool | PCLI2 Command | Required Arguments |
@@ -323,18 +357,23 @@ Notes:
 | `pcli2_tenant_use` | `pcli2 tenant use --name <name>` | `name` (or legacy `tenant_name`) |
 | `pcli2_tenant_clear` | `pcli2 tenant clear` | none |
 | `pcli2_tenant_metadata_list` | `pcli2 tenant metadata list` | none |
+| `pcli2_tenant_failures` | `pcli2 tenant failures` | none |
+| `pcli2_tenant_usage` | `pcli2 tenant usage` | none |
 | `pcli2_folder_list` | `pcli2 folder list` | none |
 | `pcli2_folder_get` | `pcli2 folder get` | `folder_uuid` or `folder_path` |
-| `pcli2_folder_create` | `pcli2 folder create` | `name`, plus `parent_folder_uuid` or `parent_folder_path` |
+| `pcli2_folder_create` | `pcli2 folder create` | `name`, plus `parent_folder_uuid` or `parent_folder_path` (optional `description`) |
 | `pcli2_folder_delete` | `pcli2 folder delete` | `folder_uuid` or `folder_path` |
 | `pcli2_folder_rename` | `pcli2 folder rename` | `name`, plus `folder_uuid` or `folder_path` |
 | `pcli2_folder_move` | `pcli2 folder move` | `folder_uuid` or `folder_path`, plus `parent_folder_uuid` or `parent_folder_path` |
+| `pcli2_folder_description_get` | `pcli2 folder description get` | `folder_uuid` or `folder_path` |
+| `pcli2_folder_description_set` | `pcli2 folder description set` | `text`, plus `folder_uuid` or `folder_path` |
+| `pcli2_folder_description_clear` | `pcli2 folder description clear` | `folder_uuid` or `folder_path` |
 | `pcli2_folder_resolve` | `pcli2 folder resolve` | `folder_path` |
 | `pcli2_folder_download` | `pcli2 folder download` | `folder_uuid` or `folder_path` |
 | `pcli2_folder_upload` | `pcli2 folder upload` | `input`, plus `folder_uuid` or `folder_path` |
 | `pcli2_folder_thumbnail` | `pcli2 folder thumbnail` | `folder_uuid` or `folder_path` |
 | `pcli2_folder_dependencies` | `pcli2 folder dependencies` | `folder_path` |
-| `pcli2_folder_geometric_match` | `pcli2 folder geometric-match` | `folder_path` |
+| `pcli2_folder_geometric_match` | `pcli2 folder geometric-match` | `folder_path` (optional `groups`, `format=xls`/`xlsx`) |
 | `pcli2_folder_part_match` | `pcli2 folder part-match` | `folder_path` |
 | `pcli2_folder_visual_match` | `pcli2 folder visual-match` | `folder_path` |
 | `pcli2_auth_login` | `pcli2 auth login` | `client_id`, `client_secret` |
@@ -357,6 +396,9 @@ Notes:
 | `pcli2_asset_text_match` | `pcli2 asset text-match` | `text` |
 | `pcli2_asset_similarity` | `pcli2 asset similarity` | `reference_uuid` or `reference_path`, plus `candidate_uuid` or `candidate_path` |
 | `pcli2_asset_reprocess` | `pcli2 asset reprocess` | `uuid` or `path` |
+| `pcli2_asset_resolve_dependency` | `pcli2 asset resolve-dependency` | `dependency`, plus `uuid` or `path`, plus `target_uuid` or `target_path` |
+| `pcli2_asset_move` | `pcli2 asset move` | `uuid` or `path`, plus `folder_uuid` or `folder_path` |
+| `pcli2_asset_diagnose` | `pcli2 asset diagnose` | `uuid` or `path` |
 | `pcli2_asset_counts` | `pcli2 asset counts` | none |
 | `pcli2_asset_inventory` | `pcli2 asset inventory` | none |
 | `pcli2_asset_thumbnail` | `pcli2 asset thumbnail` | `uuid` or `path` |
@@ -378,6 +420,17 @@ Notes:
 | `pcli2_environment_reset` | `pcli2 env reset` | none |
 | `pcli2_user_list` | `pcli2 user list` | none |
 | `pcli2_user_get` | `pcli2 user get <user_id>` | `user_id` |
+| `pcli2_report_list` | `pcli2 report list` | none |
+| `pcli2_report_get` | `pcli2 report get` | `id` |
+| `pcli2_report_download` | `pcli2 report download` | `id`, plus `format` (`csv`/`xlsx`/`table`) |
+| `pcli2_report_diagnose` | `pcli2 report diagnose` | `id` |
+| `pcli2_report_delete` | `pcli2 report delete` | `id` |
+| `pcli2_report_create` | `pcli2 report create` | `folder_path` (repeatable) |
+| `pcli2_catalog_list` | `pcli2 catalog list` | none |
+| `pcli2_catalog_geometric_match` | `pcli2 catalog geometric-match` | `uuid` or `path` |
+| `pcli2_catalog_part_match` | `pcli2 catalog part-match` | `uuid` or `path` |
+| `pcli2_catalog_visual_match` | `pcli2 catalog visual-match` | `uuid` or `path` |
+| `pcli2_api` | `pcli2 api <path>` | `path` |
 | `pcli2_cache_clear` | `pcli2 cache clear` | none |
 | `pcli2_thumbnail_cache_cleanup` | Cleanup expired thumbnails in the MCP server's cache | none |
 
@@ -481,15 +534,126 @@ Use the `pcli2_thumbnail_cache_cleanup` tool to remove expired thumbnails and fr
 }
 ```
 
+## Examples
+
+Each example below is a `tools/call` request sent to `POST /mcp`. Output is JSON by default — read it, don't parse human text.
+
+**Run a duplication report and wait for it to finish:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 5,
+  "method": "tools/call",
+  "params": {
+    "name": "pcli2_report_create",
+    "arguments": {
+      "name": "Q3 duplicate parts",
+      "folder_path": ["/Production", "/Suppliers"],
+      "min_threshold": 90,
+      "max_threshold": 100,
+      "exclude_assemblies": true,
+      "wait": true
+    }
+  }
+}
+```
+
+Then download the finished report as an Excel file:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 6,
+  "method": "tools/call",
+  "params": {
+    "name": "pcli2_report_download",
+    "arguments": { "id": "7c51ca0f-7cbe-413a-a8e8-0d4f4b131e17", "format": "xlsx", "output": "./duplicates.xlsx" }
+  }
+}
+```
+
+**Search a supplier catalog for parts similar to your bracket:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 7,
+  "method": "tools/call",
+  "params": {
+    "name": "pcli2_catalog_geometric_match",
+    "arguments": {
+      "path": "/Production/bracket.stl",
+      "in": "catalog",
+      "threshold": 90,
+      "format": "json"
+    }
+  }
+}
+```
+
+**Fix a failed assembly by linking its missing dependency:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 8,
+  "method": "tools/call",
+  "params": {
+    "name": "pcli2_asset_resolve_dependency",
+    "arguments": {
+      "path": "/BOM/housing.step",
+      "dependency": "/Suppliers/bolt.stl",
+      "target_path": "/Production/bolt.stl",
+      "dry_run": true
+    }
+  }
+}
+```
+
+**Call any API endpoint directly (the `pcli2_api` escape hatch):**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 9,
+  "method": "tools/call",
+  "params": {
+    "name": "pcli2_api",
+    "arguments": {
+      "path": "/tenants/{tenantId}/folders",
+      "method": "GET",
+      "paginate": true
+    }
+  }
+}
+```
+
 ## Configuration
 
-- `--port`: listening port (default: `8080`)
+`pcli2-mcp serve` options:
+
+- `--host`: binding host (default: `localhost`); use `0.0.0.0` to listen on all interfaces
+- `--port` / `-p`: listening port (default: `8080`)
 - `--log-level`: logging level for the server (default: `info`)
-- `RUST_LOG`: log level (e.g. `info`, `debug`)
+- `--read-only`: refuse tools that mutate Physna data, auth or config state, and limit `pcli2_api` to `GET`/`HEAD` requests with no body
+- `--token` <TOKEN>: require `Authorization: Bearer <TOKEN>` on every `/mcp` request
+- `MCP_TOKEN`: environment-variable form of `--token`, used when `--token` is not given
+- `RUST_LOG`: overrides `--log-level` when set
+
+Environment `serve` also forwards to every pcli2 child process:
+`PCLI2_NO_INPUT=1`, `PCLI2_NO_COLOR=1`, `PCLI2_NO_UPDATE_CHECK=1`,
+`PCLI2_ERROR_FORMAT=json`, `PCLI2_FORMAT=json`, `PCLI2_SAFE_CSV=1`.
 
 ## Troubleshooting
 
 - Ensure `pcli2` is installed and reachable via `PATH`.
+- A tool result with `isError: true` (not a JSON-RPC error) means the pcli2 call
+  ran and did not succeed — read the `error` text, fix the arguments, and retry.
+- A `401` from `/mcp` means a token is required but missing or wrong; check
+  `--token` / `MCP_TOKEN` and the client's `Authorization: Bearer …` header.
+- A result refused as "read-only" means `--read-only` is set; drop it, or use a
+  non-mutating / dry-run tool.
 - If the server returns a non-zero error, check the embedded `pcli2` stdout/stderr in the response.
 - For verbose logging during troubleshooting, set `RUST_LOG=debug`.
 

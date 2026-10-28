@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [0.3.0] - 2026-10-28
+
+### Changed
+
+- **Requires pcli2 2.8 or newer.** Tool definitions were synced with the pcli2 2.8.1 command tree.
+- pcli2 is now always spawned with `PCLI2_FORMAT=json`, so every `--format`-accepting command defaults to the machine-readable JSON that LLM clients consume. An explicit `format` argument still overrides the default (e.g. a `format=xlsx` report export). The unit and integration tests now assert this.
+- pcli2 is also spawned with `PCLI2_SAFE_CSV=1`, so any CSV a tool emits (report download, a `format=csv` request, a match export) is guarded against spreadsheet formula injection.
+- **Error contract**: a pcli2 execution or validation failure is now returned to the model as an `isError: true` tool result instead of a JSON-RPC `-32602` error, so it can read the message and self-correct (e.g. "folder not found" → try another path). Only malformed JSON-RPC (bad JSON, wrong version, unknown method) still raises a JSON-RPC error.
+- The OAuth2 `client_secret` is now forwarded to pcli2 via the `PCLI2_CLIENT_SECRET` environment variable instead of on the command line, so it never appears in a process list or in the execution log (pcli2 prefers the env var over the flag).
+- `pcli2_folder_geometric_match` accepts `--groups` and a new `format=xlsx` option (alongside `json`, `csv`, `xls`); `format=table` is accepted where pcli2 supports it.
+- `pcli2_folder_create` accepts `--description` for a new folder.
+- Output is documented as JSON-by-default, with a full argument schema still available via `tools/list`.
+
+### Added
+
+- New pcli2 2.x command groups, one tool per subcommand:
+  - **Reports**: `pcli2_report_list`, `pcli2_report_get`, `pcli2_report_download`, `pcli2_report_diagnose`, `pcli2_report_delete`, `pcli2_report_create` (the last with `wait`/`poll-interval` for polling a report to completion).
+  - **Catalogs**: `pcli2_catalog_list`, `pcli2_catalog_geometric_match`, `pcli2_catalog_part_match`, `pcli2_catalog_visual_match` (search a tenant you can reach, via `in`).
+  - **Tenant insight**: `pcli2_tenant_failures` (with `kind`/`limit`) and `pcli2_tenant_usage` (with `from`/`to`/`days`/`daily`, documented as mutually exclusive).
+  - **Folder metadata**: `pcli2_folder_description_get`, `pcli2_folder_description_set`, `pcli2_folder_description_clear`.
+  - **Assembly repair**: `pcli2_asset_resolve_dependency` (link a missing dependency to a standing-in asset), `pcli2_asset_move` (move an asset to another folder), and `pcli2_asset_diagnose` (explain why an asset failed to process).
+  - **Generic passthrough**: `pcli2_api` reaches any Physna API endpoint with an authenticated request, body fields (`field`/`raw_field`/`input`), `method`, `paginate`, and per-call `tenant`.
+- The tool table grew from 66 to 85 tools; one unit test still pins an argv case for every tool, so a new tool without a case fails the build.
+- **Security.** `--token <TOKEN>` (or the `MCP_TOKEN` environment variable) requires `Authorization: Bearer <TOKEN>` on every `/mcp` request, compared in constant time; when unconfigured the route is open, which is correct for a server bound to loopback. A missing or wrong token yields `401`.
+- **Security.** `--read-only` mode refuses every tool that mutates Physna data, an authentication session, or local config state, and limits the generic `pcli2_api` passthrough to `GET`/`HEAD` requests with no body. Refusals are returned as `isError: true` content. `pcli2_cache_clear` and `pcli2_thumbnail_cache_cleanup` remain available as local maintenance.
+- Tests: a pure `forward_secrets` unit test proving the secret leaves argv; integration tests for the `isError` error contract, read-only refusals (including the `pcli2_api` GET/HEAD gate) and bearer auth.
+
+### Notes
+
+- `pcli2 completions` and `pcli2 man` are intentionally **not** exposed: they generate shell completions and man pages — a developer convenience — not Physna operations an agent would perform.
+
 ## [0.2.0] - 2026-09-13
 
 ### Changed

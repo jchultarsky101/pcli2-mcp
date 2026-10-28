@@ -24,13 +24,69 @@ pub const PCLI2_BIN_ENV: &str = "PCLI2_BIN";
 
 /// Environment applied to every pcli2 child process so it behaves well when
 /// driven by a server: never prompt, no ANSI colour, no update-check chatter,
-/// and machine-readable errors on stderr.
+/// machine-readable errors on stderr, and machine-readable JSON output.
+///
+/// `PCLI2_FORMAT=json` makes pcli2 default to JSON for every `--format` it
+/// accepts, which is the machine-friendly format LLM clients consume. An
+/// explicit `--format` argument always overrides this default (for example a
+/// `format=xlsx` report export).
+///
+/// `PCLI2_SAFE_CSV=1` guards pcli2's CSV output against spreadsheet formula
+/// injection (a cell beginning with `=`, `+`, `-`, `@`, tab or carriage
+/// return is quoted), so the occasional CSV a tool emits is safe to open.
 pub const PCLI2_CHILD_ENV: &[(&str, &str)] = &[
     ("PCLI2_NO_INPUT", "1"),
     ("PCLI2_NO_COLOR", "1"),
     ("PCLI2_NO_UPDATE_CHECK", "1"),
     ("PCLI2_ERROR_FORMAT", "json"),
+    ("PCLI2_FORMAT", "json"),
+    ("PCLI2_SAFE_CSV", "1"),
 ];
+
+/// pcli2 flags whose value is a credential secret. The value is forwarded to
+/// the pcli2 child via the environment (pcli2 prefers `PCLI2_CLIENT_SECRET`
+/// over the flag) and removed from the argv we spawn and log, so the secret
+/// never appears in a process list or in the execution log.
+const SECRET_FLAGS: &[(&str, &str)] = &[("--client-secret", "PCLI2_CLIENT_SECRET")];
+
+/// Splits a built argv into the argv to hand to pcli2 (secrets removed) and the
+/// extra `(env_key, value)` pairs to inject into the child environment.
+///
+/// A `--client-secret <value>` pair becomes a `PCLI2_CLIENT_SECRET` env var and
+/// is dropped from argv; every other argument passes through untouched, so a
+/// secret is set by environment rather than appearing on the command line.
+pub fn forward_secrets(argv: &[String]) -> (Vec<String>, Vec<(&'static str, String)>) {
+    let mut out: Vec<String> = Vec::with_capacity(argv.len());
+    let mut env: Vec<(&'static str, String)> = Vec::new();
+    let mut i = 0;
+    while i < argv.len() {
+        match SECRET_FLAGS.iter().find(|(flag, _)| *flag == argv[i]) {
+            Some((_, env_key)) if i + 1 < argv.len() => {
+                env.push((*env_key, argv[i + 1].clone()));
+                i += 2;
+            }
+            Some(_) => {
+                out.push(argv[i].clone());
+                i += 1;
+            }
+            None => {
+                out.push(argv[i].clone());
+                i += 1;
+            }
+        }
+    }
+    (out, env)
+}
+
+/// A tool result that reports a failed or refused execution to the model as
+/// `isError` content, so it can read the message and self-correct (retry with
+/// different inputs) instead of the client surfacing a hard JSON-RPC error.
+pub fn error_result(message: impl Into<String>) -> Value {
+    json!({
+        "content": [{ "type": "text", "text": message.into() }],
+        "isError": true,
+    })
+}
 
 const TOOL_LEGACY_LIST: &str = "pcli2";
 const TOOL_ASSET_THUMBNAIL: &str = "pcli2_asset_thumbnail";
@@ -286,6 +342,9 @@ pub fn format_stderr(stderr: &str) -> String {
 }
 
 pub async fn run_pcli2_command(cmd_args: Vec<String>, label: &str) -> Result<String, String> {
+    // Forward credential secrets to the child via the environment and drop them
+    // from argv, so they never reach a process list or the execution log below.
+    let (cmd_args, secret_env) = forward_secrets(&cmd_args);
     let rendered = cmd_args
         .iter()
         .map(|arg| shell_escape_arg(arg))
@@ -300,6 +359,9 @@ pub async fn run_pcli2_command(cmd_args: Vec<String>, label: &str) -> Result<Str
         .stderr(Stdio::piped());
     for (key, value) in PCLI2_CHILD_ENV {
         command.env(key, value);
+    }
+    for (key, value) in &secret_env {
+        command.env(key, value.as_str());
     }
     let mut child = command
         .spawn()
@@ -386,6 +448,47 @@ mod tests {
         assert_eq!(shell_escape_arg(""), "''");
         assert_eq!(shell_escape_arg("with space"), "'with space'");
         assert_eq!(shell_escape_arg("with'quote"), "'with'\"'\"'quote'");
+    }
+
+    #[test]
+    fn test_forward_secrets_moves_client_secret_to_env() {
+        let argv = v(&[
+            "auth",
+            "login",
+            "--client-id",
+            "id-123",
+            "--client-secret",
+            "top-secret",
+        ]);
+        let (out, env) = forward_secrets(&argv);
+        // The secret value is gone from argv; only the flagless args survive.
+        assert_eq!(out, v(&["auth", "login", "--client-id", "id-123"]));
+        assert_eq!(env, vec![("PCLI2_CLIENT_SECRET", "top-secret".to_string())]);
+        // A repeated flag forwards every value.
+        let argv = v(&["--client-secret", "a", "--client-secret", "b"]);
+        let (out, env) = forward_secrets(&argv);
+        assert!(out.is_empty());
+        assert_eq!(
+            env,
+            vec![
+                ("PCLI2_CLIENT_SECRET", "a".to_string()),
+                ("PCLI2_CLIENT_SECRET", "b".to_string()),
+            ]
+        );
+        // A non-secret flag with a value is left on the command line.
+        let argv = v(&["--tenant", "t", "--client-id", "id"]);
+        let (out, env) = forward_secrets(&argv);
+        assert_eq!(out, v(&["--tenant", "t", "--client-id", "id"]));
+        assert!(env.is_empty());
+        // A trailing secret flag with no value is left untouched and not forwarded.
+        let argv = v(&["--client-secret"]);
+        let (out, env) = forward_secrets(&argv);
+        assert_eq!(out, v(&["--client-secret"]));
+        assert!(env.is_empty());
+    }
+
+    fn v(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| s.to_string()).collect()
     }
 
     #[test]

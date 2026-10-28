@@ -2,18 +2,20 @@ use crate::{
     AppState,
     cli::{ARG_CLIENT, ARG_HOST, ARG_PORT, CLIENT_CLAUDE, CLIENT_QWEN_AGENT, CLIENT_QWEN_CODE},
     pcli::*,
+    tools::{api_request_is_read_only, is_mutation},
 };
 use anyhow::{Result, anyhow};
 use axum::{
     body::Bytes,
     extract::State,
-    http::StatusCode,
-    response::{IntoResponse, Json},
+    http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Json, Response},
 };
 use clap::ArgMatches;
+use http::header::AUTHORIZATION;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use tracing::info;
+use tracing::{info, warn};
 
 pub const MCP_SERVER_ALIAS: &str = "pcli2";
 pub const MCP_REMOTE_COMMAND: &str = "npx";
@@ -112,6 +114,48 @@ fn parse_rpc_request(value: Value) -> Result<RpcRequest, String> {
     })
 }
 
+/// Constant-time string comparison to keep a token check timing-insensitive.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff: u8 = 0;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
+/// Authenticating front door for the `/mcp` route.
+///
+/// When the server is configured with a token (`--token` or `MCP_TOKEN`), every
+/// request must carry `Authorization: Bearer <token>`, compared in constant time.
+/// With no token configured the route is open (the original behaviour), which is
+/// correct for a server bound to loopback. Delegates to [`handle_mcp`] for the
+/// actual JSON-RPC dispatch.
+pub async fn authed_mcp(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    bytes: Bytes,
+) -> Response {
+    let token = state.token.clone();
+    if let Some(expected) = token {
+        let provided = headers
+            .get(AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.strip_prefix("Bearer "));
+        match provided {
+            Some(provided) if constant_time_eq(provided.as_bytes(), expected.as_bytes()) => {}
+            Some(_) => {
+                warn!("rejected /mcp request with an invalid bearer token");
+                return (StatusCode::UNAUTHORIZED, "invalid bearer token").into_response();
+            }
+            None => return (StatusCode::UNAUTHORIZED, "missing bearer token").into_response(),
+        }
+    }
+    handle_mcp(State(state), bytes).await.into_response()
+}
+
 pub async fn handle_mcp(State(state): State<AppState>, bytes: Bytes) -> impl IntoResponse {
     let value: Value = match serde_json::from_slice(&bytes) {
         Ok(value) => value,
@@ -174,9 +218,36 @@ pub async fn handle_mcp(State(state): State<AppState>, bytes: Bytes) -> impl Int
                 .and_then(|value| value.as_str())
                 .unwrap_or("unknown");
             info!("🔧 tools/call name={}", tool_name);
+
+            // In read-only mode refuse anything that mutates remote data, an
+            // auth/session, or local config state, and constrain the generic API
+            // passthrough to read-only requests.
+            if state.read_only {
+                if is_mutation(tool_name) {
+                    let message = format!(
+                        "Refused: this server runs in read-only mode. Tool '{tool_name}' \
+                         would change Physna data, an authentication session, or local configuration.",
+                    );
+                    warn!("rejected read-only violation: {message}");
+                    return json_ok(id, error_result(message)).into_response();
+                }
+                let arguments = params.get("arguments").cloned().unwrap_or(Value::Null);
+                if tool_name == "pcli2_api" && !api_request_is_read_only(&arguments) {
+                    let message = "Refused: in read-only mode pcli2_api may only send \
+                        GET/HEAD requests with no request body."
+                        .to_string();
+                    warn!("rejected read-only violation: {message}");
+                    return json_ok(id, error_result(message)).into_response();
+                }
+            }
+
             match call_tool(params, state.thumbnail_cache.as_ref().as_ref()).await {
+                // A successful tool run returns the model's content.
                 Ok(result) => json_ok(id, result).into_response(),
-                Err(message) => json_error(id, -32602, message).into_response(),
+                // An execution or validation failure is reported to the model as
+                // `isError` content, so it can read the pcli2 message and
+                // self-correct instead of the client surfacing a hard error.
+                Err(message) => json_ok(id, error_result(message)).into_response(),
             }
         }
         _ => json_error(id, -32601, format!("Method '{}' not found", method)).into_response(),

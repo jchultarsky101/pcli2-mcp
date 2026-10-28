@@ -1,6 +1,6 @@
 use crate::AppState;
-use crate::cli::{ARG_HOST, ARG_PORT, DEFAULT_HOST};
-use crate::mcp::handle_mcp;
+use crate::cli::{ARG_HOST, ARG_PORT, ARG_READ_ONLY, ARG_TOKEN, DEFAULT_HOST};
+use crate::mcp::authed_mcp;
 use crate::thumbnail::{ThumbnailCache, ThumbnailCacheConfig, default_cache_dir};
 use anyhow::{Result, anyhow};
 use axum::body::Body;
@@ -36,8 +36,22 @@ pub async fn run_server(matches: &ArgMatches) -> Result<()> {
     let port = *matches
         .get_one::<u16>(ARG_PORT)
         .ok_or_else(|| anyhow!("missing port"))?;
+    let read_only = *matches.get_one::<bool>(ARG_READ_ONLY).unwrap_or(&false);
+    // A bearer token may come from --token or fall back to the MCP_TOKEN
+    // environment variable.
+    let token = matches
+        .get_one::<String>(ARG_TOKEN)
+        .cloned()
+        .or_else(|| std::env::var("MCP_TOKEN").ok().filter(|v| !v.is_empty()));
 
     print_banner();
+
+    if token.is_some() {
+        info!("🔐 Bearer-token authentication is enforced on /mcp");
+    }
+    if read_only {
+        info!("🔒 Server is running in read-only mode (mutations refused)");
+    }
 
     // Initialize thumbnail cache
     let thumbnail_cache = match default_cache_dir() {
@@ -64,11 +78,13 @@ pub async fn run_server(matches: &ArgMatches) -> Result<()> {
         server_name: SERVER_NAME.to_string(),
         server_version: APP_VERSION.to_string(),
         thumbnail_cache: Arc::new(thumbnail_cache),
+        token,
+        read_only,
     };
 
     let app = Router::new()
         .route("/health", get(health))
-        .route("/mcp", axum::routing::post(handle_mcp))
+        .route("/mcp", axum::routing::post(authed_mcp))
         .route("/thumbnail/:cache_key", get(serve_thumbnail))
         .with_state(state)
         .layer(

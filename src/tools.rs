@@ -293,6 +293,226 @@ const LIMIT_1000: ArgSpec = integer(
 const ENV_NAME: ArgSpec = string("name", "--name", "Environment name.");
 
 // ---------------------------------------------------------------------------
+// New pcli2 2.x option definitions
+// ---------------------------------------------------------------------------
+
+// --- folder ----------------------------------------------------------------
+/// `folder create --description`: optional description for the new folder.
+const FOLDER_DESCRIPTION: ArgSpec = string(
+    "description",
+    "--description",
+    "Optional description for the new folder (up to 255 characters).",
+);
+/// `folder description set --text`: the description to set.
+const DESCRIPTION_TEXT: ArgSpec = string(
+    "text",
+    "--text",
+    "Folder description, 1 to 255 characters; surrounding spaces are dropped.",
+)
+.required();
+/// `folder geometric-match --groups`: group mutually-similar assets.
+const GROUPS: ArgSpec = flag(
+    "groups",
+    "--groups",
+    "Group mutually-similar assets: adds GROUP_ID and GROUP_SIZE as the last columns (groupId and groupSize in JSON).",
+);
+
+// --- catalog ---------------------------------------------------------------
+/// `catalog <match> --in <catalog>` selects the catalog to search.
+const CATALOG_IN: ArgSpec = string(
+    "in",
+    "--in",
+    "Catalog to search, by name or ID, as shown by pcli2_catalog_list. Defaults to your only catalog.",
+);
+
+// --- tenant ----------------------------------------------------------------
+/// `tenant failures --kind` (repeatable), filtering by failure kind.
+const FAILURE_KIND: ArgSpec = string_list(
+    "kind",
+    "--kind",
+    "Only failures of this kind (repeatable): asset, report, part-finder-report.",
+)
+.values(&["asset", "report", "part-finder-report"]);
+/// `tenant failures --limit`: stop after this many rows (default: all of them).
+const LIMIT_UNBOUNDED: ArgSpec = integer(
+    "limit",
+    "--limit",
+    "Stop after this many rows. Default: all of them.",
+);
+/// `tenant usage --days`: length of the reporting period in days.
+const USAGE_DAYS: ArgSpec = integer(
+    "days",
+    "--days",
+    "Length of the reporting period in days, ending with `to`. Default 30.",
+)
+.range(1.0, 366.0);
+/// `tenant usage --from`/`--to`: UTC day boundaries as YYYY-MM-DD.
+const USAGE_FROM: ArgSpec = string(
+    "from",
+    "--from",
+    "First UTC day of the period, as YYYY-MM-DD. Default: 29 days before `to`.",
+);
+const USAGE_TO: ArgSpec = string(
+    "to",
+    "--to",
+    "Last UTC day of the period, as YYYY-MM-DD. Default: today.",
+);
+/// `tenant usage --daily`: one row per UTC day.
+const USAGE_DAILY: ArgSpec = flag(
+    "daily",
+    "--daily",
+    "One row per UTC day (date, searches, compares, downloads, uploads, reports, active users) instead of one total.",
+);
+
+// --- asset -----------------------------------------------------------------
+/// `asset resolve-dependency --dependency`: the missing dependency's path.
+const MISSING_DEPENDENCY: ArgSpec = string(
+    "dependency",
+    "--dependency",
+    "The missing dependency's path, exactly as pcli2_asset_dependencies lists it.",
+)
+.required();
+/// The asset that should stand in for the missing dependency.
+const TARGET_UUID: ArgSpec = string(
+    "target_uuid",
+    "--target-uuid",
+    "UUID of the existing asset to stand in for the missing dependency.",
+);
+const TARGET_PATH: ArgSpec = string(
+    "target_path",
+    "--target-path",
+    "Path of the existing asset to stand in for the missing dependency, e.g. /Root/part.stl.",
+);
+
+/// Bare key-groups used as single elements of a composite `one_of`, e.g.
+/// `&[UUID_PATH, TARGET_ONE_OF]` for "one of uuid/path and one of target…".
+const TARGET_ONE_OF: &[&str] = &["target_uuid", "target_path"];
+const UUID_PATH: &[&str] = &["uuid", "path"];
+const FOLDER_ID: &[&str] = &["folder_uuid", "folder_path"];
+
+// --- report ----------------------------------------------------------------
+/// `report list --type`: filter by report type.
+const REPORT_TYPE: ArgSpec = string("type", "--type", "Only reports of this type.").values(&[
+    "DUPLICATION",
+    "SIMPLIFICATION",
+    "CUSTOM",
+]);
+/// `report list --status`: filter by report status.
+const REPORT_STATUS: ArgSpec = string("status", "--status", "Only reports in this status.")
+    .values(&["PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"]);
+/// The report ID, as shown by `pcli2_report_list`.
+const REPORT_ID: ArgSpec = string(
+    "id",
+    "--id",
+    "The report's ID, as shown by pcli2_report_list.",
+)
+.required();
+/// `report download --format`: the file format to download (required).
+const REPORT_DOWNLOAD_FORMAT: ArgSpec = string(
+    "format",
+    "--format",
+    "File format to download to a local file on the MCP server host.",
+)
+.values(&["csv", "xlsx", "table"])
+.required();
+/// `report download --output`: output file path.
+const REPORT_OUTPUT: ArgSpec = string(
+    "output",
+    "--output",
+    "Output file path. Defaults to the report's name (or its ID) plus the format extension.",
+);
+/// `report create --min-threshold`: minimum duplicate similarity (0-100).
+const MIN_THRESHOLD: ArgSpec = number(
+    "min_threshold",
+    "--min-threshold",
+    "Minimum similarity (0 to 100) for two assets to count as duplicates. Default 80.",
+)
+.range(0.0, 100.0);
+/// `report create --max-threshold`: maximum similarity to include (0-100).
+const MAX_THRESHOLD: ArgSpec = number(
+    "max_threshold",
+    "--max-threshold",
+    "Maximum similarity (0 to 100) to include. Default 100.",
+)
+.range(0.0, 100.0);
+/// `report create --folder-path` (repeatable): folders to search.
+const REPORT_FOLDER_PATHS: ArgSpec = string_list(
+    "folder_path",
+    "--folder-path",
+    "Folder to search, subfolders included, as a string, a comma-separated string, or an array. '/' means the root assets. Repeatable.",
+)
+.required();
+/// `report create --exclude-folder-path` (repeatable): subfolders to leave out.
+const EXCLUDE_FOLDER_PATHS: ArgSpec = string_list(
+    "exclude_folder_path",
+    "--exclude-folder-path",
+    "Subfolder of a searched folder to leave out, with its own subfolders. Repeatable.",
+);
+/// `report create --extension` (repeatable): restrict to file extensions.
+const REPORT_EXTENSIONS: ArgSpec = string_list(
+    "extension",
+    "--extension",
+    "Only assets with this file extension, e.g. stl. Repeatable.",
+);
+const EXCLUDE_ASSEMBLIES: ArgSpec = flag(
+    "exclude_assemblies",
+    "--exclude-assemblies",
+    "Leave assemblies out of the report groups.",
+);
+const EXCLUDE_EXACT_DUPLICATES: ArgSpec = flag(
+    "exclude_exact_duplicates",
+    "--exclude-exact-duplicates",
+    "Leave out exact duplicates (a 100% match with the same file name).",
+);
+const INCLUDE_HOME: ArgSpec = flag(
+    "include_home",
+    "--include-home",
+    "Include the assets in the root folder that have no folder of their own.",
+);
+const REPORT_WAIT: ArgSpec = flag(
+    "wait",
+    "--wait",
+    "Poll the report until it is COMPLETED, FAILED or CANCELLED before printing it.",
+);
+const POLL_INTERVAL: ArgSpec = integer(
+    "poll_interval",
+    "--poll-interval",
+    "Seconds between polls when `wait` is set. Default 5.",
+)
+.range(1.0, 3600.0);
+
+// --- api -------------------------------------------------------------------
+/// The endpoint path passed positionally to `pcli2 api`.
+const API_PATH: ArgSpec =
+    positional("path", "Endpoint path relative to the API URL; {tenantId} is replaced with the active tenant (or the one named with `tenant`).").required();
+const API_METHOD: ArgSpec = string(
+    "method",
+    "--method",
+    "HTTP method. Default GET, or POST when a body is given.",
+)
+.values(&["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"]);
+const API_FIELD: ArgSpec = string_list(
+    "field",
+    "--field",
+    "Add a field to the JSON body as KEY=VALUE; the value is read as JSON when it parses (numbers, true, arrays, objects) else as a string. Repeatable.",
+);
+const API_RAW_FIELD: ArgSpec = string_list(
+    "raw_field",
+    "--raw-field",
+    "Add a field to the JSON body as KEY=VALUE, always as a string. Repeatable.",
+);
+const API_INPUT: ArgSpec = string(
+    "input",
+    "--input",
+    "The JSON body, read from a file on the MCP server host; '-' for standard input.",
+);
+const PAGINATE: ArgSpec = flag(
+    "paginate",
+    "--paginate",
+    "For a GET listing: fetch every page and print one list.",
+);
+
+// ---------------------------------------------------------------------------
 // Tool table
 // ---------------------------------------------------------------------------
 
@@ -393,6 +613,20 @@ pub static TOOLS: &[ToolSpec] = &[
         &[TENANT, FORMAT_JCT, PRETTY, HEADERS],
         &[],
     ),
+    tool(
+        "pcli2_tenant_failures",
+        "Lists recent processing failures for assets, reports and part-finder reports, newest first (`pcli2 tenant failures`). JSON output carries tenant-wide totals and the newest-failure time per kind; the `asset` row ID is what pcli2_asset_diagnose accepts.",
+        &["tenant", "failures"],
+        &[TENANT, FAILURE_KIND, LIMIT_UNBOUNDED, FORMAT_JC, PRETTY, HEADERS],
+        &[],
+    ),
+    tool(
+        "pcli2_tenant_usage",
+        "Reports how much the tenant used Physna over a period of UTC days: searches, compares, downloads, uploads, reports, active users and current asset counts (`pcli2 tenant usage`). Requires the tenant admin role. The window defaults to the last 30 days: pass `days` for a length ending at `to`, or use `from`/`to` for explicit bounds (these are mutually exclusive with `days`); set `daily` for one row per day.",
+        &["tenant", "usage"],
+        &[TENANT, USAGE_FROM, USAGE_TO, USAGE_DAYS, USAGE_DAILY, FORMAT_JC, PRETTY, HEADERS],
+        &[],
+    ),
     // -- folder ---------------------------------------------------------------
     tool(
         "pcli2_folder_list",
@@ -417,6 +651,7 @@ pub static TOOLS: &[ToolSpec] = &[
             string("name", "--name", "Name of the new folder.").required(),
             PARENT_FOLDER_UUID,
             PARENT_FOLDER_PATH,
+            FOLDER_DESCRIPTION,
             YES,
         ],
         &[PARENT_ONE_OF],
@@ -454,6 +689,27 @@ pub static TOOLS: &[ToolSpec] = &[
         &["folder", "move"],
         &[TENANT, FOLDER_UUID, FOLDER_PATH, PARENT_FOLDER_UUID, PARENT_FOLDER_PATH, YES],
         &[&["folder_uuid", "folder_path"], PARENT_ONE_OF],
+    ),
+    tool(
+        "pcli2_folder_description_get",
+        "Prints a folder's description (`pcli2 folder description get`). Nothing is printed when the folder has no description.",
+        &["folder", "description", "get"],
+        &[TENANT, FOLDER_UUID, FOLDER_PATH],
+        FOLDER_UUID_OR_PATH,
+    ),
+    tool(
+        "pcli2_folder_description_set",
+        "Sets or replaces a folder's description (`pcli2 folder description set`). The text must be 1 to 255 characters.",
+        &["folder", "description", "set"],
+        &[TENANT, FOLDER_UUID, FOLDER_PATH, DESCRIPTION_TEXT],
+        FOLDER_UUID_OR_PATH,
+    ),
+    tool(
+        "pcli2_folder_description_clear",
+        "Removes a folder's description (`pcli2 folder description clear`). Nothing happens when the folder has none.",
+        &["folder", "description", "clear"],
+        &[TENANT, FOLDER_UUID, FOLDER_PATH, YES],
+        FOLDER_UUID_OR_PATH,
     ),
     tool(
         "pcli2_folder_resolve",
@@ -527,7 +783,7 @@ pub static TOOLS: &[ToolSpec] = &[
     ),
     tool(
         "pcli2_folder_geometric_match",
-        "Finds geometrically similar assets for every asset in one or more folders (`pcli2 folder geometric-match`). Rows are ordered by asset pair in json/csv; `format=xls` writes an Excel report to `output`.",
+        "Finds geometrically similar assets for every asset in one or more folders (`pcli2 folder geometric-match`). Rows are ordered by asset pair in json/csv; `format=xls` or `format=xlsx` writes an Excel report to `output`. Output defaults to JSON. Set `groups` to cluster mutually-similar assets.",
         &["folder", "geometric-match"],
         &[
             TENANT,
@@ -535,11 +791,17 @@ pub static TOOLS: &[ToolSpec] = &[
             RECURSIVE,
             THRESHOLD,
             EXCLUSIVE,
+            GROUPS,
             HEADERS,
             METADATA,
             PRETTY,
-            string("format", "--format", "Output format. Default json.").values(&["json", "csv", "xls"]),
-            string("output", "--output", "Output file path, used with format=xls. Default match_report.xlsx."),
+            string("format", "--format", "Output format. Default json (set by the server).").values(&[
+                "json",
+                "csv",
+                "xls",
+                "xlsx",
+            ]),
+            string("output", "--output", "Output file path, used with format=xls/xlsx. Default match_report.xlsx."),
             CONCURRENT,
             CHECKPOINT,
             PROGRESS,
@@ -804,6 +1066,43 @@ pub static TOOLS: &[ToolSpec] = &[
         UUID_OR_PATH,
     ),
     tool(
+        "pcli2_asset_resolve_dependency",
+        "Links a missing dependency of an assembly to an existing asset that stands in for it, so the assembly can finish processing (`pcli2 asset resolve-dependency`). Pick `dependency` from pcli2_asset_dependencies and name the replacement with `target_uuid`/`target_path`.",
+        &["asset", "resolve-dependency"],
+        &[
+            TENANT,
+            UUID,
+            PATH,
+            MISSING_DEPENDENCY,
+            TARGET_UUID,
+            TARGET_PATH,
+            DRY_RUN,
+        ],
+        &[UUID_PATH, TARGET_ONE_OF],
+    ),
+    tool(
+        "pcli2_asset_move",
+        "Moves an asset to another folder (`pcli2 asset move`). Point `folder_uuid`/`folder_path` at the destination; `/` or `/Home` is the root. Use `dry_run` to preview.",
+        &["asset", "move"],
+        &[
+            TENANT,
+            UUID,
+            PATH,
+            FOLDER_UUID,
+            FOLDER_PATH,
+            DRY_RUN,
+            YES,
+        ],
+        &[UUID_PATH, FOLDER_ID],
+    ),
+    tool(
+        "pcli2_asset_diagnose",
+        "Explains why an asset failed to process, from the server's failure diagnostics (`pcli2 asset diagnose`). STATUS is `found` when the failure was located and `not-found` when it did not fail or has aged out; an `internal` kind carries a trace ID to quote to support.",
+        &["asset", "diagnose"],
+        &[TENANT, UUID, PATH, FORMAT_JCT, HEADERS, PRETTY],
+        UUID_OR_PATH,
+    ),
+    tool(
         "pcli2_asset_counts",
         "Shows an asset health report for the tenant: counts by processing state, by file type, and assemblies vs parts (`pcli2 asset counts`).",
         &["asset", "counts"],
@@ -1002,6 +1301,140 @@ pub static TOOLS: &[ToolSpec] = &[
         ],
         &[],
     ),
+    // -- report -----------------------------------------------------------------
+    tool(
+        "pcli2_report_list",
+        "Lists the tenant's reports, newest first (`pcli2 report list`). Filter by report type and/or status.",
+        &["report", "list"],
+        &[TENANT, REPORT_TYPE, REPORT_STATUS, LIMIT_UNBOUNDED, FORMAT_JC, PRETTY, HEADERS],
+        &[],
+    ),
+    tool(
+        "pcli2_report_get",
+        "Shows one report's status, progress and settings (`pcli2 report get`).",
+        &["report", "get"],
+        &[TENANT, REPORT_ID, FORMAT_JC, PRETTY, HEADERS],
+        &[],
+    ),
+    tool(
+        "pcli2_report_download",
+        "Downloads a completed report's data to a file on the MCP server host as CSV, XLSX or table (`pcli2 report download`).",
+        &["report", "download"],
+        &[TENANT, REPORT_ID, REPORT_DOWNLOAD_FORMAT, REPORT_OUTPUT],
+        &[],
+    ),
+    tool(
+        "pcli2_report_diagnose",
+        "Explains why a report failed, from the server's failure diagnostics (`pcli2 report diagnose`). STATUS is `found` when the failure was located, `not-found` otherwise.",
+        &["report", "diagnose"],
+        &[TENANT, REPORT_ID, FORMAT_JC, PRETTY, HEADERS],
+        &[],
+    ),
+    tool(
+        "pcli2_report_delete",
+        "Deletes a report (`pcli2 report delete`). Use `dry_run` to preview; `yes` confirms without prompting.",
+        &["report", "delete"],
+        &[TENANT, REPORT_ID, DRY_RUN, YES],
+        &[],
+    ),
+    tool(
+        "pcli2_report_create",
+        "Starts a duplication report over the given folders, their subfolders included, and prints the report record (`pcli2 report create`). Set `wait` to poll it to completion, then use pcli2_report_download for the data. A report that fails exits non-zero and points at pcli2_report_diagnose.",
+        &["report", "create"],
+        &[
+            TENANT,
+            string("name", "--name", "A name for the report."),
+            MIN_THRESHOLD,
+            MAX_THRESHOLD,
+            REPORT_FOLDER_PATHS,
+            EXCLUDE_FOLDER_PATHS,
+            REPORT_EXTENSIONS,
+            EXCLUDE_ASSEMBLIES,
+            EXCLUDE_EXACT_DUPLICATES,
+            INCLUDE_HOME,
+            REPORT_WAIT,
+            POLL_INTERVAL,
+            FORMAT_JC,
+            PRETTY,
+            HEADERS,
+        ],
+        &[],
+    ),
+    // -- catalog ----------------------------------------------------------------
+    tool(
+        "pcli2_catalog_list",
+        "Lists the catalogs you can search (`pcli2 catalog list`); only these are accepted by --in on the catalog match tools. A catalog is a tenant Physna makes searchable from others; a search never reaches another of your tenants.",
+        &["catalog", "list"],
+        &[FORMAT_JCT, PRETTY, HEADERS],
+        &[],
+    ),
+    tool(
+        "pcli2_catalog_geometric_match",
+        "Finds geometrically similar assets in a catalog you can search (`pcli2 catalog geometric-match`).",
+        &["catalog", "geometric-match"],
+        &[
+            TENANT,
+            UUID,
+            PATH,
+            CATALOG_IN,
+            LIMIT_100,
+            THRESHOLD,
+            FORMAT_JCT,
+            PRETTY,
+            HEADERS,
+        ],
+        UUID_OR_PATH,
+    ),
+    tool(
+        "pcli2_catalog_part_match",
+        "Finds catalog assets that contain, or are contained in, a reference asset using the part-search algorithm (`pcli2 catalog part-match`).",
+        &["catalog", "part-match"],
+        &[
+            TENANT,
+            UUID,
+            PATH,
+            CATALOG_IN,
+            LIMIT_100,
+            THRESHOLD,
+            FORMAT_JCT,
+            PRETTY,
+            HEADERS,
+        ],
+        UUID_OR_PATH,
+    ),
+    tool(
+        "pcli2_catalog_visual_match",
+        "Finds visually similar assets in a catalog you can search (`pcli2 catalog visual-match`). `threshold` is a size threshold (0 disables size filtering).",
+        &["catalog", "visual-match"],
+        &[
+            TENANT,
+            UUID,
+            PATH,
+            CATALOG_IN,
+            LIMIT_100,
+            SIZE_THRESHOLD,
+            FORMAT_JCT,
+            PRETTY,
+            HEADERS,
+        ],
+        UUID_OR_PATH,
+    ),
+    // -- api --------------------------------------------------------------------
+    tool(
+        "pcli2_api",
+        "Sends a request to any endpoint of the Physna API and returns its body (`pcli2 api`), authenticated like every pcli2 command. Use `path` relative to the API URL with `{tenantId}` replaced by the active tenant; build a JSON body with one or more `field`/`raw_field`/`input`. A non-2xx answer is reported as an error with the server's message.",
+        &["api"],
+        &[
+            API_PATH,
+            API_METHOD,
+            API_FIELD,
+            API_RAW_FIELD,
+            API_INPUT,
+            PAGINATE,
+            TENANT,
+        ],
+        &[],
+    ),
     // -- cache ------------------------------------------------------------------
     tool(
         "pcli2_cache_clear",
@@ -1027,6 +1460,67 @@ pub static TOOLS: &[ToolSpec] = &[
 
 pub fn find_tool(name: &str) -> Option<&'static ToolSpec> {
     TOOLS.iter().find(|spec| spec.name == name)
+}
+
+// ---------------------------------------------------------------------------
+// Read-only mode
+// ---------------------------------------------------------------------------
+
+/// Whether a tool mutates remote Physna data or changes local auth, tenant or
+/// environment state. In `--read-only` mode these are refused; every other tool
+/// (reads, search, matching, diagnostics and the MCP server's own cache
+/// cleanup) is still permitted.
+pub fn is_mutation(name: &str) -> bool {
+    matches!(
+        name,
+        // Remote data mutation.
+        "pcli2_asset_create"
+            | "pcli2_asset_create_batch"
+            | "pcli2_asset_delete"
+            | "pcli2_asset_metadata_create"
+            | "pcli2_asset_metadata_create_batch"
+            | "pcli2_asset_metadata_delete"
+            | "pcli2_asset_move"
+            | "pcli2_asset_reprocess"
+            | "pcli2_asset_resolve_dependency"
+            | "pcli2_folder_create"
+            | "pcli2_folder_delete"
+            | "pcli2_folder_description_clear"
+            | "pcli2_folder_description_set"
+            | "pcli2_folder_move"
+            | "pcli2_folder_rename"
+            | "pcli2_folder_upload"
+            | "pcli2_report_create"
+            | "pcli2_report_delete"
+            // Authentication, active tenant/environment and local config state.
+            | "pcli2_auth_clear_token"
+            | "pcli2_auth_login"
+            | "pcli2_auth_logout"
+            | "pcli2_config_import"
+            | "pcli2_environment_add"
+            | "pcli2_environment_remove"
+            | "pcli2_environment_reset"
+            | "pcli2_environment_use"
+            | "pcli2_tenant_clear"
+            | "pcli2_tenant_use"
+    )
+}
+
+/// Whether a `pcli2_api` invocation is safe in read-only mode: a `GET`/`HEAD`
+/// (or unspecified, which pcli2 treats as `GET`) with no request body. Any
+/// write method (`POST`/`PUT`/`PATCH`/`DELETE`) or the presence of a body
+/// (`field`, `raw_field`, `input`) is a write and is refused.
+pub fn api_request_is_read_only(args: &Value) -> bool {
+    let method = args
+        .get("method")
+        .and_then(Value::as_str)
+        .map(|m| m.to_ascii_uppercase())
+        .unwrap_or_else(|| "GET".to_string());
+    let only_reads = method == "GET" || method == "HEAD" || method.is_empty();
+    let has_body = ["field", "raw_field", "input"]
+        .iter()
+        .any(|key| is_present(args.get(*key)));
+    only_reads && !has_body
 }
 
 // ---------------------------------------------------------------------------
@@ -2004,6 +2498,252 @@ mod tests {
                 json!({"folder": true, "metadata": true, "tenant": true}),
                 v(&["cache", "clear", "--folder", "--metadata", "--tenant"]),
             ),
+            (
+                "pcli2_tenant_failures",
+                json!({"tenant": "t", "kind": ["asset", "report"], "limit": 5, "format": "csv", "headers": true}),
+                v(&[
+                    "tenant",
+                    "failures",
+                    "--tenant",
+                    "t",
+                    "--kind",
+                    "asset",
+                    "--kind",
+                    "report",
+                    "--limit",
+                    "5",
+                    "--format",
+                    "csv",
+                    "--headers",
+                ]),
+            ),
+            (
+                "pcli2_tenant_usage",
+                json!({"tenant": "t", "from": "2026-01-01", "to": "2026-01-31", "days": 30, "daily": true, "format": "csv", "headers": true}),
+                v(&[
+                    "tenant",
+                    "usage",
+                    "--tenant",
+                    "t",
+                    "--from",
+                    "2026-01-01",
+                    "--to",
+                    "2026-01-31",
+                    "--days",
+                    "30",
+                    "--daily",
+                    "--format",
+                    "csv",
+                    "--headers",
+                ]),
+            ),
+            (
+                "pcli2_folder_description_get",
+                json!({"folder_path": "/A"}),
+                v(&["folder", "description", "get", "--folder-path", "/A"]),
+            ),
+            (
+                "pcli2_folder_description_set",
+                json!({"folder_uuid": "u", "text": "Hello world"}),
+                v(&[
+                    "folder",
+                    "description",
+                    "set",
+                    "--folder-uuid",
+                    "u",
+                    "--text",
+                    "Hello world",
+                ]),
+            ),
+            (
+                "pcli2_folder_description_clear",
+                json!({"folder_path": "/A", "yes": true}),
+                v(&[
+                    "folder",
+                    "description",
+                    "clear",
+                    "--folder-path",
+                    "/A",
+                    "--yes",
+                ]),
+            ),
+            (
+                "pcli2_asset_resolve_dependency",
+                json!({"path": "/A/top.step", "dependency": "/A/part.stl", "target_uuid": "tu", "dry_run": true}),
+                v(&[
+                    "asset",
+                    "resolve-dependency",
+                    "--path",
+                    "/A/top.step",
+                    "--dependency",
+                    "/A/part.stl",
+                    "--target-uuid",
+                    "tu",
+                    "--dry-run",
+                ]),
+            ),
+            (
+                "pcli2_asset_move",
+                json!({"uuid": "u", "folder_path": "/Dest", "dry_run": true, "yes": true}),
+                v(&[
+                    "asset",
+                    "move",
+                    "--uuid",
+                    "u",
+                    "--folder-path",
+                    "/Dest",
+                    "--dry-run",
+                    "--yes",
+                ]),
+            ),
+            (
+                "pcli2_asset_diagnose",
+                json!({"path": "/A/p.stl", "format": "json", "headers": true, "pretty": true}),
+                v(&[
+                    "asset",
+                    "diagnose",
+                    "--path",
+                    "/A/p.stl",
+                    "--format",
+                    "json",
+                    "--headers",
+                    "--pretty",
+                ]),
+            ),
+            (
+                "pcli2_report_list",
+                json!({"type": "DUPLICATION", "status": "COMPLETED", "limit": 10, "format": "csv", "headers": true}),
+                v(&[
+                    "report",
+                    "list",
+                    "--type",
+                    "DUPLICATION",
+                    "--status",
+                    "COMPLETED",
+                    "--limit",
+                    "10",
+                    "--format",
+                    "csv",
+                    "--headers",
+                ]),
+            ),
+            (
+                "pcli2_report_get",
+                json!({"id": "r1", "format": "json", "pretty": true}),
+                v(&[
+                    "report", "get", "--id", "r1", "--format", "json", "--pretty",
+                ]),
+            ),
+            (
+                "pcli2_report_download",
+                json!({"id": "r1", "format": "xlsx", "output": "r.xlsx"}),
+                v(&[
+                    "report", "download", "--id", "r1", "--format", "xlsx", "--output", "r.xlsx",
+                ]),
+            ),
+            (
+                "pcli2_report_diagnose",
+                json!({"id": "r1", "format": "json"}),
+                v(&["report", "diagnose", "--id", "r1", "--format", "json"]),
+            ),
+            (
+                "pcli2_report_delete",
+                json!({"id": "r1", "dry_run": true, "yes": true}),
+                v(&["report", "delete", "--id", "r1", "--dry-run", "--yes"]),
+            ),
+            (
+                "pcli2_report_create",
+                json!({"name": "dup", "min_threshold": 85, "max_threshold": 100, "folder_path": ["/A", "/B"], "exclude_folder_path": "/C", "extension": ["stl"], "exclude_assemblies": true, "exclude_exact_duplicates": true, "include_home": true, "wait": true, "poll_interval": 5, "format": "csv", "headers": true}),
+                v(&[
+                    "report",
+                    "create",
+                    "--name",
+                    "dup",
+                    "--min-threshold",
+                    "85",
+                    "--max-threshold",
+                    "100",
+                    "--folder-path",
+                    "/A",
+                    "--folder-path",
+                    "/B",
+                    "--exclude-folder-path",
+                    "/C",
+                    "--extension",
+                    "stl",
+                    "--exclude-assemblies",
+                    "--exclude-exact-duplicates",
+                    "--include-home",
+                    "--wait",
+                    "--poll-interval",
+                    "5",
+                    "--format",
+                    "csv",
+                    "--headers",
+                ]),
+            ),
+            (
+                "pcli2_catalog_list",
+                json!({"format": "csv", "headers": true}),
+                v(&["catalog", "list", "--format", "csv", "--headers"]),
+            ),
+            (
+                "pcli2_catalog_geometric_match",
+                json!({"path": "/A/bracket.stl", "in": "acme", "limit": 50, "threshold": 90, "format": "csv", "headers": true}),
+                v(&[
+                    "catalog",
+                    "geometric-match",
+                    "--path",
+                    "/A/bracket.stl",
+                    "--in",
+                    "acme",
+                    "--limit",
+                    "50",
+                    "--threshold",
+                    "90",
+                    "--format",
+                    "csv",
+                    "--headers",
+                ]),
+            ),
+            (
+                "pcli2_catalog_part_match",
+                json!({"uuid": "u", "threshold": 75}),
+                v(&["catalog", "part-match", "--uuid", "u", "--threshold", "75"]),
+            ),
+            (
+                "pcli2_catalog_visual_match",
+                json!({"path": "/A/p.stl", "threshold": 50, "in": "acme"}),
+                v(&[
+                    "catalog",
+                    "visual-match",
+                    "--path",
+                    "/A/p.stl",
+                    "--in",
+                    "acme",
+                    "--threshold",
+                    "50",
+                ]),
+            ),
+            (
+                "pcli2_api",
+                json!({"path": "/tenants/{tenantId}/folders", "method": "GET", "field": ["status=COMPLETED"], "raw_field": ["note=x"], "input": "body.json", "paginate": true, "tenant": "t"}),
+                v(&[
+                    "api",
+                    "/tenants/{tenantId}/folders",
+                    "--method",
+                    "GET",
+                    "--field",
+                    "status=COMPLETED",
+                    "--raw-field",
+                    "note=x",
+                    "--input",
+                    "body.json",
+                    "--paginate",
+                    "--tenant",
+                    "t",
+                ]),
+            ),
             ("pcli2_thumbnail_cache_cleanup", json!({}), v(&[])),
         ]
     }
@@ -2102,9 +2842,13 @@ mod tests {
         assert_eq!(props["threshold"]["minimum"], 0.0);
         assert_eq!(props["threshold"]["maximum"], 100.0);
         assert_eq!(props["concurrent"]["type"], "integer");
-        assert_eq!(props["format"]["enum"], json!(["json", "csv", "xls"]));
+        assert_eq!(
+            props["format"]["enum"],
+            json!(["json", "csv", "xls", "xlsx"])
+        );
         assert!(props["folder_path"]["oneOf"].is_array());
         assert_eq!(props["recursive"]["type"], "boolean");
+        assert_eq!(props["groups"]["type"], "boolean");
         assert_eq!(s["inputSchema"]["required"], json!(["folder_path"]));
 
         let s = schema(find_tool("pcli2_user_get").unwrap());
@@ -2115,6 +2859,26 @@ mod tests {
         assert_eq!(
             s["inputSchema"]["properties"]["response_mode"]["enum"],
             json!(["url", "data_url"])
+        );
+
+        // The generic API tool exposes a positional path and a repeatable body field.
+        let s = schema(find_tool("pcli2_api").unwrap());
+        let props = &s["inputSchema"]["properties"];
+        assert_eq!(s["inputSchema"]["required"], json!(["path"]));
+        assert!(props["field"]["oneOf"].is_array());
+        assert_eq!(
+            props["method"]["enum"],
+            json!(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"])
+        );
+
+        // The folder-description group needs a folder selector.
+        let s = schema(find_tool("pcli2_folder_description_set").unwrap());
+        assert_eq!(s["inputSchema"]["required"], json!(["text"]));
+        assert!(
+            s["description"]
+                .as_str()
+                .unwrap()
+                .contains("'folder_uuid' or 'folder_path'")
         );
     }
 
@@ -2356,5 +3120,94 @@ mod tests {
             ok("pcli2_asset_get", json!({"uuid": "u", "path": "/p"})),
             v(&["asset", "get", "--uuid", "u", "--path", "/p"])
         );
+    }
+
+    #[test]
+    fn test_read_only_gate_classifies_tools() {
+        // Mutating and state-changing tools are refused under --read-only.
+        for name in [
+            "pcli2_asset_create",
+            "pcli2_asset_create_batch",
+            "pcli2_asset_delete",
+            "pcli2_asset_move",
+            "pcli2_asset_reprocess",
+            "pcli2_asset_resolve_dependency",
+            "pcli2_asset_metadata_create",
+            "pcli2_asset_metadata_create_batch",
+            "pcli2_asset_metadata_delete",
+            "pcli2_folder_create",
+            "pcli2_folder_delete",
+            "pcli2_folder_rename",
+            "pcli2_folder_move",
+            "pcli2_folder_upload",
+            "pcli2_folder_description_set",
+            "pcli2_folder_description_clear",
+            "pcli2_report_create",
+            "pcli2_report_delete",
+            "pcli2_auth_login",
+            "pcli2_auth_logout",
+            "pcli2_auth_clear_token",
+            "pcli2_tenant_use",
+            "pcli2_tenant_clear",
+            "pcli2_environment_add",
+            "pcli2_environment_use",
+            "pcli2_environment_remove",
+            "pcli2_environment_reset",
+            "pcli2_config_import",
+        ] {
+            assert!(is_mutation(name), "{name} should be a mutation");
+        }
+        // Reads, search, diagnostics and the server's own maintenance stay allowed.
+        for name in [
+            "pcli2",
+            "pcli2_asset_list",
+            "pcli2_asset_get",
+            "pcli2_asset_diagnose",
+            "pcli2_asset_dependencies",
+            "pcli2_asset_thumbnail",
+            "pcli2_folder_get",
+            "pcli2_folder_resolve",
+            "pcli2_folder_description_get",
+            "pcli2_report_list",
+            "pcli2_report_get",
+            "pcli2_report_download",
+            "pcli2_report_diagnose",
+            "pcli2_catalog_list",
+            "pcli2_catalog_geometric_match",
+            "pcli2_cache_clear",
+            "pcli2_thumbnail_cache_cleanup",
+            "pcli2_api",
+        ] {
+            assert!(!is_mutation(name), "{name} should be read-only-safe");
+        }
+    }
+
+    #[test]
+    fn test_api_request_read_only() {
+        assert!(api_request_is_read_only(
+            &json!({"path": "/a", "method": "GET"})
+        ));
+        assert!(api_request_is_read_only(
+            &json!({"path": "/a", "method": "HEAD"})
+        ));
+        // An unspecified method with no body is treated as a GET.
+        assert!(api_request_is_read_only(&json!({"path": "/a"})));
+        // Any write method is refused.
+        assert!(!api_request_is_read_only(
+            &json!({"path": "/a", "method": "DELETE"})
+        ));
+        assert!(!api_request_is_read_only(
+            &json!({"path": "/a", "method": "POST"})
+        ));
+        // A body implies a write (pcli2 defaults to POST), even when GET is named.
+        assert!(!api_request_is_read_only(
+            &json!({"path": "/a", "method": "GET", "field": ["x=1"]})
+        ));
+        assert!(!api_request_is_read_only(
+            &json!({"path": "/a", "raw_field": ["n=v"]})
+        ));
+        assert!(!api_request_is_read_only(
+            &json!({"path": "/a", "input": "body.json"})
+        ));
     }
 }
