@@ -1,4 +1,4 @@
-use clap::{Arg, Command, value_parser};
+use clap::{Arg, ArgAction, Command, value_parser};
 
 pub const CMD_SERVE: &str = "serve";
 pub const CMD_CONFIG: &str = "config";
@@ -9,6 +9,8 @@ pub const ARG_CLIENT: &str = "client";
 pub const ARG_COMMAND: &str = "command";
 pub const ARG_HOST: &str = "host";
 pub const ARG_LOG_LEVEL: &str = "log_level";
+pub const ARG_READ_ONLY: &str = "read_only";
+pub const ARG_TOKEN: &str = "token";
 
 pub const DEFAULT_PORT_STR: &str = "8080";
 pub const DEFAULT_HOST: &str = "localhost";
@@ -59,6 +61,20 @@ fn serve_command() -> Command {
                 .default_value(DEFAULT_LOG_LEVEL)
                 .help("Logging level (e.g. trace, debug, info, warn, error)"),
         )
+        .arg(
+            Arg::new(ARG_READ_ONLY)
+                .long("read-only")
+                .action(ArgAction::SetTrue)
+                .help(
+                    "Refuse tools that mutate Physna data, auth or config; \
+                     pcli2_api is limited to GET/HEAD with no body.",
+                ),
+        )
+        .arg(Arg::new(ARG_TOKEN).long("token").value_name("TOKEN").help(
+            "Require `Authorization: Bearer <TOKEN>` on every /mcp request. \
+                     May also be set via the MCP_TOKEN environment variable. \
+                     When unset the route is open (correct for loopback).",
+        ))
 }
 
 fn config_command() -> Command {
@@ -127,6 +143,8 @@ mod tests {
         assert!(args.contains(&ARG_HOST.to_string()));
         assert!(args.contains(&ARG_PORT.to_string()));
         assert!(args.contains(&ARG_LOG_LEVEL.to_string()));
+        assert!(args.contains(&ARG_READ_ONLY.to_string()));
+        assert!(args.contains(&ARG_TOKEN.to_string()));
     }
 
     #[test]
