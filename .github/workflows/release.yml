@@ -103,7 +103,7 @@ jobs:
     # Let the initial task tell us to not run (currently very blunt)
     needs:
       - plan
-    if: ${{ needs.plan.outputs.artifacts_matrix != "" && fromJson(needs.plan.outputs.artifacts_matrix).include != null && (needs.plan.outputs.publishing == 'true' || needs.plan.outputs.pr_run_mode == 'upload') }}
+    if: ${{ needs.plan.outputs.artifacts_matrix != '' && fromJson(needs.plan.outputs.artifacts_matrix).include != null && (needs.plan.outputs.publishing == 'true' || needs.plan.outputs.pr_run_mode == 'upload') }}
     strategy:
       fail-fast: false
       # Target platforms/runners are computed by dist in create-release.
