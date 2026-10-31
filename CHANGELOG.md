@@ -6,10 +6,21 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-31
+
+### Added
+
+- **Offline pcli2 startup self-check.** On `serve`, before the server listens, pcli2 is probed for compatibility with **no network or credentials**, in two cheap parts:
+  - **Version floor.** `pcli2 --version` is parsed and compared against the minimum the tool table requires (pcli2 **2.8.0**). A below-minimum version is reported as a warning.
+  - **Subcommand "anchor" presence.** The newest subcommand per group — `catalog list`, `report list`, `tenant failures`, `folder description get`, `asset move`, `user list` — is probed with `pcli2 <group> --help`. Presence is read from the exit status (an unknown subcommand prints `unrecognized subcommand` and exits non-zero), which is robust to new pcli2 versions and catches both a *too-old* binary and a *breaking* release that renamed or removed a group — the two cases a bare version number cannot see.
+  - **Surfaced two ways.** Always to the server log, and to the model via the `initialize` response's `instructions` field (protocol `2025-03-26`), so the client knows which pcli2 it is driving and whether it is supported, e.g. *"This MCP server wraps the pcli2 CLI v2.8.2. Supported: pcli2 meets the required 2.8.0 (tested 2.8.1 - 2.8.2); All 6 expected subcommand groups are present."*
+  - **Fail-closed only on a missing binary.** A missing or unexecutable pcli2 aborts the start with an actionable error (install pcli2, put it on `PATH`, or set `PCLI2_BIN`); a below-minimum version or a missing group is a warning, not a refusal. The deeper, networked `pcli2 doctor` check remains available on demand as an MCP tool.
+- **`PCLI2_MCP_NO_STARTUP_CHECK`** disables the check (set to `1`/`true`/`on`/`yes`) for the rare environment where pcli2 is absent or the probe is undesirable.
+
 ### Notes
 
-- **Verified against pcli2 2.8.2 — no release required.** pcli2 2.8.2 (deps/security refresh + an OpenAPI-spec refresh; the only code change is a zip-extraction tweak in `asset download`) introduces no change to the command tree this server wraps. The 85-tool table still maps the full 2.8.2 tree, and the `0.3.0` server was verified end-to-end against the pcli2 2.8.2 binary (env `shared`, tenant `demo-1`) across the read tools, deep sub-commands (`tenant metadata list`, `config get path`), text/geometric matching, and both `isError` paths. The next pcli2-mcp release tracks the next pcli2 version that changes the command tree.
-- **Maintenance.** Untracked `plan-dist-manifest.json` (a cargo-dist local plan manifest that is environment- and version-specific) and added it to `.gitignore`; it is regenerated on every `dist plan`/release.
+- **Verified against pcli2 2.8.2.** The self-check and the full 85-tool surface were exercised end-to-end against the live pcli2 2.8.2 binary (env `shared`, tenant `demo-1`): the read tools, deep sub-commands (`tenant metadata list`, `config get path`), text/geometric matching, and both `isError` paths. pcli2 2.8.2 (a deps/security + OpenAPI-spec refresh; the only code change is a zip-extraction tweak in `asset download`) introduced no change to the command tree this server wraps.
+- **Maintenance.** `plan-dist-manifest.json` (a cargo-dist local plan manifest — environment- and version-specific) was untracked and added to `.gitignore`; it is regenerated on every `dist plan`/release.
 
 ## [0.3.0] - 2026-10-28
 

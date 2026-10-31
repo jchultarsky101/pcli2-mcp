@@ -142,6 +142,7 @@ async fn jsonrpc_parse_error_returns_32700() {
         thumbnail_cache: std::sync::Arc::new(None),
         token: None,
         read_only: false,
+        ..Default::default()
     };
     let response = handle_mcp(State(state), Bytes::from("{bad json"))
         .await
@@ -162,6 +163,7 @@ async fn jsonrpc_invalid_request_returns_32600() {
         thumbnail_cache: std::sync::Arc::new(None),
         token: None,
         read_only: false,
+        ..Default::default()
     };
     let response = handle_mcp(State(state), Bytes::from(r#"{"jsonrpc":"2.0","id":1}"#))
         .await
@@ -182,6 +184,7 @@ async fn jsonrpc_notification_returns_no_content() {
         thumbnail_cache: std::sync::Arc::new(None),
         token: None,
         read_only: false,
+        ..Default::default()
     };
     let response = handle_mcp(
         State(state),
@@ -209,6 +212,7 @@ async fn logging_on_tools_call_outputs_command() {
         thumbnail_cache: std::sync::Arc::new(None),
         token: None,
         read_only: false,
+        ..Default::default()
     };
 
     let request = json!({
@@ -234,6 +238,7 @@ async fn test_initialize_method() {
         thumbnail_cache: std::sync::Arc::new(None),
         token: None,
         read_only: false,
+        ..Default::default()
     };
 
     let request = json!({
@@ -265,6 +270,7 @@ async fn test_tools_list_method() {
         thumbnail_cache: std::sync::Arc::new(None),
         token: None,
         read_only: false,
+        ..Default::default()
     };
 
     let request = json!({
@@ -295,6 +301,7 @@ async fn test_unknown_method_returns_error() {
         thumbnail_cache: std::sync::Arc::new(None),
         token: None,
         read_only: false,
+        ..Default::default()
     };
 
     let request = json!({
@@ -324,6 +331,7 @@ async fn test_jsonrpc_wrong_version() {
         thumbnail_cache: std::sync::Arc::new(None),
         token: None,
         read_only: false,
+        ..Default::default()
     };
 
     let request = json!({
@@ -492,6 +500,7 @@ async fn tools_list_advertises_new_pcli2_v2_tools() {
         thumbnail_cache: std::sync::Arc::new(None),
         token: None,
         read_only: false,
+        ..Default::default()
     };
     let request = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}});
     let response = handle_mcp(State(state), Bytes::from(request.to_string()))
@@ -596,6 +605,7 @@ async fn successful_call_omits_is_error() {
         thumbnail_cache: std::sync::Arc::new(None),
         token: None,
         read_only: false,
+        ..Default::default()
     };
     let response = handle_mcp(
         State(state),
@@ -624,6 +634,7 @@ async fn execution_failure_reports_is_error() {
         thumbnail_cache: std::sync::Arc::new(None),
         token: None,
         read_only: false,
+        ..Default::default()
     };
     let response = handle_mcp(
         State(state),
@@ -655,6 +666,7 @@ async fn validation_error_reports_is_error() {
         thumbnail_cache: std::sync::Arc::new(None),
         token: None,
         read_only: false,
+        ..Default::default()
     };
     let response = handle_mcp(
         State(state),
@@ -683,6 +695,7 @@ fn read_only_state() -> AppState {
         thumbnail_cache: std::sync::Arc::new(None),
         token: None,
         read_only: true,
+        ..Default::default()
     }
 }
 

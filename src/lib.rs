@@ -1,4 +1,5 @@
 pub mod cli;
+pub mod compat;
 pub mod error;
 pub mod mcp;
 pub mod pcli;
@@ -15,7 +16,7 @@ use std::sync::{Arc, OnceLock};
 use thumbnail::ThumbnailCache;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct AppState {
     pub server_name: String,
     pub server_version: String,
@@ -24,6 +25,10 @@ pub struct AppState {
     pub token: Option<String>,
     /// When true, refuse mutating tools and constrain `pcli2_api` to reads.
     pub read_only: bool,
+    /// The pcli2 startup self-check result (see [`crate::compat`]). Surfaced to
+    /// the model as the `initialize` `instructions`; empty when the check did not
+    /// run (the default), so it adds no noise.
+    pub pcli2_status: crate::compat::Report,
 }
 
 pub async fn run() -> Result<()> {
@@ -94,9 +99,7 @@ mod tests {
         let state = AppState {
             server_name: "test-server".to_string(),
             server_version: "1.0.0".to_string(),
-            thumbnail_cache: Arc::new(None),
-            token: None,
-            read_only: false,
+            ..Default::default()
         };
         let cloned_state = state.clone();
 
