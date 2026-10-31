@@ -193,6 +193,31 @@ pcli2-mcp serve --host 0.0.0.0 --token "$(openssl rand -hex 24)" --read-only
   `PCLI2_CLIENT_SECRET` environment variable rather than on the command line, so it
   never shows up in a process list or in the execution log.
 
+### pcli2 startup self-check
+
+On `serve`, before the server begins listening, pcli2 is probed for compatibility
+*offline* — no network or credentials — so a mismatch is caught at start rather
+than surfacing as a pile of `isError` tool results:
+
+- **Version floor.** `pcli2 --version` is parsed and checked against the minimum the
+  tool table requires (pcli2 **2.8.0**).
+- **Subcommand "anchor" presence.** The newest subcommand per group
+  (`catalog list`, `report list`, `tenant failures`, `folder description get`,
+  `asset move`, `user list`) is probed with `pcli2 <group> --help`; an unknown group
+  exits non-zero, so this catches a binary that is *too old* or that a *newer
+  breaking release* has changed — something a bare version number cannot see.
+- **Surfaced two ways.** Always to the server log, and to the model via the
+  `initialize` response's `instructions` field (protocol `2025-03-26`), e.g.
+  *"This MCP server wraps the pcli2 CLI v2.8.2. Supported: pcli2 meets the required
+  2.8.0 … All 6 expected subcommand groups are present."*
+
+**Fail-closed only on a missing binary**: a missing or unexecutable pcli2 aborts the
+start with an actionable error (install pcli2, put it on `PATH`, or set
+`PCLI2_BIN`). A below-minimum version or a missing group is reported as a *warning*,
+not a refusal — the deeper, networked `pcli2 doctor` check stays available on demand
+as an MCP tool. Set `PCLI2_MCP_NO_STARTUP_CHECK=1` (or `true`/`on`/`yes`) to disable
+the check for an environment where pcli2 is intentionally absent.
+
 Print client config (pretty JSON):
 
 ```bash

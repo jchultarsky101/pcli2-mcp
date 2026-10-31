@@ -193,7 +193,7 @@ pub async fn handle_mcp(State(state): State<AppState>, bytes: Bytes) -> impl Int
     match method {
         "initialize" => {
             info!("🧩 initialize");
-            let result = json!({
+            let mut result = json!({
                 "protocolVersion": "2025-03-26",
                 "serverInfo": {
                     "name": state.server_name,
@@ -203,6 +203,16 @@ pub async fn handle_mcp(State(state): State<AppState>, bytes: Bytes) -> impl Int
                     "tools": {}
                 }
             });
+            // Surface the pcli2 startup self-check to the model via `instructions`
+            // (protocol 2025-03-26) when the check ran, so the model knows which
+            // pcli2 it is driving and whether it is supported. An un-run check
+            // renders empty and is omitted, leaving the response unchanged.
+            let instructions = state.pcli2_status.instructions();
+            if !instructions.is_empty()
+                && let serde_json::Value::Object(object) = &mut result
+            {
+                object.insert("instructions".to_string(), json!(instructions));
+            }
             json_ok(id, result).into_response()
         }
         "tools/list" => {

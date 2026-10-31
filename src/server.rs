@@ -1,6 +1,8 @@
 use crate::AppState;
 use crate::cli::{ARG_HOST, ARG_PORT, ARG_READ_ONLY, ARG_TOKEN, DEFAULT_HOST};
+use crate::compat;
 use crate::mcp::authed_mcp;
+use crate::pcli::pcli2_executable;
 use crate::thumbnail::{ThumbnailCache, ThumbnailCacheConfig, default_cache_dir};
 use anyhow::{Result, anyhow};
 use axum::body::Body;
@@ -74,12 +76,51 @@ pub async fn run_server(matches: &ArgMatches) -> Result<()> {
         }
     };
 
+    // Startup self-check: is pcli2 present, is it at/above the minimum version
+    // this tool table needs, and are the newest subcommand groups it exposes
+    // present on this binary? See `compat` for the rationale. The check is
+    // offline (only `pcli2 --version`/`--help`) and bypassable via
+    // `PCLI2_MCP_NO_STARTUP_CHECK`.
+    let status = if compat::disabled() {
+        compat::Report::default()
+    } else {
+        compat::check(&pcli2_executable()).await
+    };
+
+    // A missing pcli2 binary is the one case that stops the start: a server that
+    // wraps a CLI which isn't there cannot function.
+    if !status.present {
+        return Err(anyhow!(
+            "could not start: pcli2 was not found ({:?}). This MCP server wraps the pcli2 CLI \
+             and cannot run without it. Install pcli2 and make sure it is on PATH or set PCLI2_BIN. \
+             (Bypass this check with {}=1.)",
+            status.binary,
+            compat::DISABLE_ENV
+        ));
+    }
+
+    if status.ok() {
+        info!(
+            "✅ pcli2 {} detected - supported; {}/{} expected subcommand groups present",
+            status.version_string(),
+            status.present_anchors(),
+            compat::ANCHORS.len()
+        );
+    } else {
+        warn!(
+            "⚠️  pcli2 {} present but issues: {}",
+            status.version_string(),
+            status.instructions()
+        );
+    }
+
     let state = AppState {
         server_name: SERVER_NAME.to_string(),
         server_version: APP_VERSION.to_string(),
         thumbnail_cache: Arc::new(thumbnail_cache),
         token,
         read_only,
+        pcli2_status: status,
     };
 
     let app = Router::new()
