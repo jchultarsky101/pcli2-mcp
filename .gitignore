@@ -2,6 +2,9 @@
 **/*.rs.bk
 /dist/
 /target/dist/
+# cargo-dist's local plan manifest: environment- and version-specific (absolute
+# paths, timestamps); regenerated on every `dist plan`/release, so don't track it.
+plan-dist-manifest.json
 .DS_Store
 *.log
 .idea/

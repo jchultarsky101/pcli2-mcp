@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [Unreleased]
+
+### Notes
+
+- **Verified against pcli2 2.8.2 — no release required.** pcli2 2.8.2 (deps/security refresh + an OpenAPI-spec refresh; the only code change is a zip-extraction tweak in `asset download`) introduces no change to the command tree this server wraps. The 85-tool table still maps the full 2.8.2 tree, and the `0.3.0` server was verified end-to-end against the pcli2 2.8.2 binary (env `shared`, tenant `demo-1`) across the read tools, deep sub-commands (`tenant metadata list`, `config get path`), text/geometric matching, and both `isError` paths. The next pcli2-mcp release tracks the next pcli2 version that changes the command tree.
+- **Maintenance.** Untracked `plan-dist-manifest.json` (a cargo-dist local plan manifest that is environment- and version-specific) and added it to `.gitignore`; it is regenerated on every `dist plan`/release.
+
 ## [0.3.0] - 2026-10-28
 
 ### Changed
